@@ -356,7 +356,7 @@ describe('Handler cache-only (get-shipping-rates.ts)', () => {
 });
 
 describe('Panel section grouping (SupplyChainPanel.ts)', () => {
-  const panelSrc = readFileSync(resolve(root, 'src/components/SupplyChainPanel.ts'), 'utf-8');
+  const panelSrc = readFileSync(resolve(root, 'src/components/panels/SupplyChainPanel.tsx'), 'utf-8');
 
   it('groups indices by type', () => {
     for (const id of ['SCFI', 'CCFI', 'BDI', 'BCI', 'BPI', 'BSI', 'BHSI']) {

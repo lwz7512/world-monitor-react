@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'node:test';
@@ -129,16 +129,25 @@ describe('security advisory source contract', () => {
 
   it('panel country filters are derived from active travel-advisory feed countries', () => {
     const expectedCountries = travelAdvisorySourceCountries(extractAdvisoryFeeds());
-    const panel = readRepoFile('src/components/SecurityAdvisoriesPanel.ts');
+    // React migration: SecurityAdvisoriesPanel.ts → SecurityAdvisoriesPanel.tsx
+    const panelPath = 'src/components/SecurityAdvisoriesPanel.ts';
+    const reactPanelPath = 'src/components/panels/SecurityAdvisoriesPanel.tsx';
+    const panel = readRepoFile(
+      existsSync(resolve(root, panelPath)) ? panelPath : reactPanelPath,
+    );
 
     const typeMatch = panel.match(/type AdvisoryFilter = ([^;]+);/);
     assert.ok(typeMatch, 'SecurityAdvisoriesPanel must keep AdvisoryFilter inspectable.');
     const typedFilters = [...typeMatch[1]!.matchAll(/'([^']+)'/g)].map((match) => match[1]);
     const typedCountryFilters = typedFilters.filter((filter) => /^[A-Z]{2}$/.test(filter!)).sort();
 
-    const renderedCountryFilters = [...panel.matchAll(/data-filter="([A-Z]{2})"/g)]
-      .map((match) => match[1]!)
-      .sort();
+    // React migration: class-based panels used data-filter="XX" attributes;
+    // React panels use { key: 'XX', ... } in the filters array.
+    const renderedCountryFilters = (
+      panel.includes('data-filter=') ?
+        [...panel.matchAll(/data-filter="([A-Z]{2})"/g)].map((match) => match[1]!) :
+        [...panel.matchAll(/\{\s*key:\s*'([A-Z]{2})'/g)].map((match) => match[1]!)
+    ).sort();
 
     assert.deepEqual(typedCountryFilters, expectedCountries);
     assert.deepEqual(renderedCountryFilters, expectedCountries);

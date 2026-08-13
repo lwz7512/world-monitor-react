@@ -75,23 +75,23 @@ describe('widget-agent relay — security', () => {
     // Use 4000 chars to cover the full auth/setup section including SSE headers
     const handlerBody = relay.slice(handlerStart, handlerStart + 4000);
     const authCheckIdx = handlerBody.indexOf('requireWidgetAgentAccess(req, res)');
-    const sseHeaderIdx = handlerBody.indexOf("text/event-stream");
+    const sseHeaderIdx = handlerBody.indexOf('text/event-stream');
     assert.ok(authCheckIdx !== -1, 'Auth helper call not found in handler start');
-    assert.ok(sseHeaderIdx !== -1, "text/event-stream SSE header not found within handler");
+    assert.ok(sseHeaderIdx !== -1, 'text/event-stream SSE header not found within handler');
     assert.ok(authCheckIdx < sseHeaderIdx, 'Auth check must come before SSE headers');
   });
 
   it('body size limit is enforced (160KB for PRO, covers basic too)', () => {
-    assert.ok(
-      relay.includes('163840'),
-      'Body limit of 163840 bytes (160KB) must be present',
-    );
+    assert.ok(relay.includes('163840'), 'Body limit of 163840 bytes (160KB) must be present');
     // Verify 413 is returned when limit exceeded (check global presence near the limit)
     assert.ok(relay.includes('413'), 'Body size guard must respond 413');
     // Both the check and 413 should be in the handler
     const handlerStart = relay.indexOf('async function handleWidgetAgentRequest');
     const handlerBody = relay.slice(handlerStart, handlerStart + 500);
-    assert.ok(handlerBody.includes('163840'), 'Body limit must be enforced in handleWidgetAgentRequest');
+    assert.ok(
+      handlerBody.includes('163840'),
+      'Body limit must be enforced in handleWidgetAgentRequest',
+    );
   });
 
   it('SSRF guard — isWidgetEndpointAllowed function is present', () => {
@@ -100,10 +100,7 @@ describe('widget-agent relay — security', () => {
       'isWidgetEndpointAllowed guard function must exist',
     );
     // Must reject non-API paths
-    assert.ok(
-      relay.includes("startsWith('/api/')"),
-      'Guard must restrict to /api/ prefix',
-    );
+    assert.ok(relay.includes("startsWith('/api/')"), 'Guard must restrict to /api/ prefix');
   });
 
   it('SSRF guard — allowlist is checked before any fetch call in tool loop', () => {
@@ -153,7 +150,7 @@ describe('widget-agent relay — security', () => {
     //    where the array is commented out or guarded by a falsy condition but the
     //    string survives elsewhere in the file.
     const blockedArrayMatch = relay.match(/const blocked = \[[\s\S]*?\];/);
-    assert.ok(blockedArrayMatch, "isWidgetEndpointAllowed must define `const blocked = [...]`");
+    assert.ok(blockedArrayMatch, 'isWidgetEndpointAllowed must define `const blocked = [...]`');
     assert.ok(
       blockedArrayMatch[0].includes("'deduct-situation'"),
       "'deduct-situation' must appear inside the blocked array literal, not just somewhere in the file",
@@ -165,13 +162,16 @@ describe('widget-agent relay — security', () => {
     //    path, not the bare method name.
     assert.ok(
       /blocked\.some\([^)]*=>\s*endpoint\.includes\(/.test(relay),
-      "isWidgetEndpointAllowed must keep substring matching (`endpoint.includes(b)`); switching to `endpoint === b` would re-open the SSRF gap",
+      'isWidgetEndpointAllowed must keep substring matching (`endpoint.includes(b)`); switching to `endpoint === b` would re-open the SSRF gap',
     );
   });
 
   it('injection guard — isWidgetInjectionAttempt function is present', () => {
     assert.ok(relay.includes('isWidgetInjectionAttempt'), 'injection guard function must exist');
-    assert.ok(relay.includes('ignore') && relay.includes('previous'), 'must detect override patterns');
+    assert.ok(
+      relay.includes('ignore') && relay.includes('previous'),
+      'must detect override patterns',
+    );
     assert.ok(relay.includes('jailbreak'), 'must detect jailbreak keyword');
     assert.ok(relay.includes('act\\s+as'), 'must detect role hijacking');
   });
@@ -185,10 +185,16 @@ describe('widget-agent relay — security', () => {
   });
 
   it('injection guard — tool results are sanitized before context insertion', () => {
-    assert.ok(relay.includes('sanitizeToolContent'), 'sanitizeToolContent must be applied to tool results');
+    assert.ok(
+      relay.includes('sanitizeToolContent'),
+      'sanitizeToolContent must be applied to tool results',
+    );
     // Must be called on both search results and WM data results
     const count = (relay.match(/sanitizeToolContent/g) || []).length;
-    assert.ok(count >= 3, `sanitizeToolContent must appear in definition + both result paths (found ${count})`);
+    assert.ok(
+      count >= 3,
+      `sanitizeToolContent must appear in definition + both result paths (found ${count})`,
+    );
   });
 
   it('tool loop is bounded by maxTurns (6 for basic, 10 for PRO)', () => {
@@ -241,16 +247,21 @@ describe('widget-agent relay — security', () => {
     // already set above; it just overrides Methods and Headers)
     assert.ok(
       corsBlock.includes('Access-Control-Allow-Methods') ||
-      corsBlock.includes('Access-Control-Allow-Headers'),
+        corsBlock.includes('Access-Control-Allow-Headers'),
       'CORS block for /widget-agent must set Allow-Methods or Allow-Headers',
     );
   });
 
   it('registers GET /widget-agent/health before the 404 catch-all', () => {
-    const healthRouteIdx = relay.indexOf("pathname === '/widget-agent/health' && req.method === 'GET'");
+    const healthRouteIdx = relay.indexOf(
+      "pathname === '/widget-agent/health' && req.method === 'GET'",
+    );
     const catchAllIdx = relay.lastIndexOf('res.writeHead(404)');
     assert.ok(healthRouteIdx !== -1, 'widget-agent health route registration not found');
-    assert.ok(healthRouteIdx < catchAllIdx, 'widget-agent health route must appear before 404 catch-all');
+    assert.ok(
+      healthRouteIdx < catchAllIdx,
+      'widget-agent health route must appear before 404 catch-all',
+    );
   });
 
   it('uses raw @anthropic-ai/sdk (not agent SDK)', () => {
@@ -281,10 +292,7 @@ describe('widget-store — constants and logic', () => {
   const browserKeySession = src('src/services/browser-key-session.ts');
 
   it('storage key is wm-custom-widgets', () => {
-    assert.ok(
-      store.includes("'wm-custom-widgets'"),
-      "Storage key must be 'wm-custom-widgets'",
-    );
+    assert.ok(store.includes("'wm-custom-widgets'"), "Storage key must be 'wm-custom-widgets'");
   });
 
   it('auth gate migrates wm-widget-key to an HttpOnly session instead of storing it', () => {
@@ -333,9 +341,11 @@ describe('widget-store — constants and logic', () => {
   it('widget IDs use cw- prefix (in modal or store)', () => {
     const modal = src('src/components/WidgetChatModal.ts');
     assert.ok(
-      store.includes("'cw-'") || store.includes('"cw-"') ||
-      modal.includes("'cw-'") || modal.includes('"cw-"') ||
-      modal.includes('`cw-'),
+      store.includes("'cw-'") ||
+        store.includes('"cw-"') ||
+        modal.includes("'cw-'") ||
+        modal.includes('"cw-"') ||
+        modal.includes('`cw-'),
       "Widget IDs must use 'cw-' prefix (check widget-store.ts and WidgetChatModal.ts)",
     );
   });
@@ -516,7 +526,7 @@ describe('panel guardrails — cw- prefix handling', () => {
   it('event-handlers confirms before deleting cw- panels', () => {
     assert.ok(
       events.includes("startsWith('cw-')"),
-      "event-handlers must detect cw- prefix for custom widget panels",
+      'event-handlers must detect cw- prefix for custom widget panels',
     );
     assert.ok(
       events.includes("t('widgets.confirmDelete')"),
@@ -536,10 +546,7 @@ describe('panel guardrails — cw- prefix handling', () => {
   });
 
   it('event-handlers registers wm:widget-modify listener', () => {
-    assert.ok(
-      events.includes('wm:widget-modify'),
-      'Must listen for wm:widget-modify custom event',
-    );
+    assert.ok(events.includes('wm:widget-modify'), 'Must listen for wm:widget-modify custom event');
   });
 
   it('shows an accessible save failure message when widget persistence rejects', () => {
@@ -548,9 +555,9 @@ describe('panel guardrails — cw- prefix handling', () => {
       /failed to save widget[\s\S]{0,220}showToast\(t\('widgets\.saveFailed'\)\)/,
       'Modifying a widget must surface a rejected save to the user',
     );
-    const createFailureHandlers = layout.match(
-      /failed to add widget[\s\S]{0,220}showToast\(t\('widgets\.saveFailed'\)\)/g,
-    ) ?? [];
+    const createFailureHandlers =
+      layout.match(/failed to add widget[\s\S]{0,220}showToast\(t\('widgets\.saveFailed'\)\)/g) ??
+      [];
     assert.equal(
       createFailureHandlers.length,
       2,
@@ -649,20 +656,23 @@ describe('WidgetChatModal — SSE client protocol', () => {
   });
 
   it('sends X-Widget-Key header', () => {
-    assert.ok(
-      modal.includes('X-Widget-Key'),
-      'Must send X-Widget-Key header with request',
-    );
+    assert.ok(modal.includes('X-Widget-Key'), 'Must send X-Widget-Key header with request');
   });
 
   it('runs preflight against widget-agent health route on open', () => {
     assert.ok(modal.includes('widgetAgentHealthUrl'), 'Modal must import widgetAgentHealthUrl()');
     assert.ok(modal.includes('runPreflight'), 'Modal must define runPreflight()');
-    assert.ok(modal.includes("fetch(widgetAgentHealthUrl()"), 'Modal must fetch widgetAgentHealthUrl() during preflight');
+    assert.ok(
+      modal.includes('fetch(widgetAgentHealthUrl()'),
+      'Modal must fetch widgetAgentHealthUrl() during preflight',
+    );
   });
 
   it('AbortController used for cancellation', () => {
-    assert.ok(modal.includes('AbortController'), 'Must use AbortController for stream cancellation');
+    assert.ok(
+      modal.includes('AbortController'),
+      'Must use AbortController for stream cancellation',
+    );
   });
 
   it('client timeout is 60 seconds', () => {
@@ -676,7 +686,10 @@ describe('WidgetChatModal — SSE client protocol', () => {
     const bodyIdx = modal.indexOf('JSON.stringify');
     assert.ok(bodyIdx !== -1);
     const bodyRegion = modal.slice(bodyIdx, bodyIdx + 400);
-    assert.ok(bodyRegion.includes('currentHtml'), 'Must send currentHtml as separate request field');
+    assert.ok(
+      bodyRegion.includes('currentHtml'),
+      'Must send currentHtml as separate request field',
+    );
     assert.ok(bodyRegion.includes('conversationHistory'), 'Must send conversationHistory');
   });
 
@@ -709,8 +722,14 @@ describe('WidgetChatModal — SSE client protocol', () => {
   });
 
   it('action button says "Add to Dashboard" (create) or "Apply Changes" (modify)', () => {
-    assert.ok(modal.includes("t('widgets.addToDashboard')"), 'Create mode button must use widgets.addToDashboard');
-    assert.ok(modal.includes("t('widgets.applyChanges')"), 'Modify mode button must use widgets.applyChanges');
+    assert.ok(
+      modal.includes("t('widgets.addToDashboard')"),
+      'Create mode button must use widgets.addToDashboard',
+    );
+    assert.ok(
+      modal.includes("t('widgets.applyChanges')"),
+      'Modify mode button must use widgets.applyChanges',
+    );
   });
 
   it('uses split layout and sticky footer action bar structure', () => {
@@ -739,7 +758,9 @@ describe('WidgetChatModal — SSE client protocol', () => {
 
   it('multi-turn requests reuse mutable sessionHistory instead of original spec history', () => {
     assert.ok(
-      modal.includes('const sessionHistory = [...(options.existingSpec?.conversationHistory ?? [])]'),
+      modal.includes(
+        'const sessionHistory = [...(options.existingSpec?.conversationHistory ?? [])]',
+      ),
       'Modal must keep a mutable sessionHistory array for iterative requests',
     );
     assert.ok(
@@ -807,7 +828,10 @@ describe('proxy routing — widgetAgentUrl', () => {
 
   it('widgetAgentHealthUrl() exists and targets /widget-agent/health', () => {
     assert.ok(proxy.includes('widgetAgentHealthUrl'), 'widgetAgentHealthUrl() must be defined');
-    assert.ok(proxy.includes('/widget-agent/health'), 'widgetAgentHealthUrl() must target /widget-agent/health');
+    assert.ok(
+      proxy.includes('/widget-agent/health'),
+      'widgetAgentHealthUrl() must target /widget-agent/health',
+    );
   });
 });
 
@@ -874,8 +898,8 @@ describe('i18n — widgets section completeness', () => {
   it('confirmDelete text sounds permanent (not just hide)', () => {
     assert.ok(
       en.widgets.confirmDelete.toLowerCase().includes('remove') ||
-      en.widgets.confirmDelete.toLowerCase().includes('delete') ||
-      en.widgets.confirmDelete.toLowerCase().includes('permanent'),
+        en.widgets.confirmDelete.toLowerCase().includes('delete') ||
+        en.widgets.confirmDelete.toLowerCase().includes('permanent'),
       'confirmDelete must convey permanence — not just hide',
     );
   });
@@ -884,11 +908,26 @@ describe('i18n — widgets section completeness', () => {
     const modal = src('src/components/WidgetChatModal.ts');
     const panel = src('src/components/CustomWidgetPanel.ts');
     const events = src('src/app/event-handlers.ts');
-    assert.ok(modal.includes("t('widgets.chatTitle')"), 'WidgetChatModal must use widgets.chatTitle');
-    assert.ok(modal.includes("t('widgets.modifyTitle')"), 'WidgetChatModal must use widgets.modifyTitle');
-    assert.ok(modal.includes("t('widgets.inputPlaceholder')"), 'WidgetChatModal must use widgets.inputPlaceholder');
-    assert.ok(panel.includes("t('widgets.modifyWithAi')"), 'CustomWidgetPanel must use widgets.modifyWithAi');
-    assert.ok(events.includes("t('widgets.confirmDelete')"), 'Delete confirmation must use widgets.confirmDelete');
+    assert.ok(
+      modal.includes("t('widgets.chatTitle')"),
+      'WidgetChatModal must use widgets.chatTitle',
+    );
+    assert.ok(
+      modal.includes("t('widgets.modifyTitle')"),
+      'WidgetChatModal must use widgets.modifyTitle',
+    );
+    assert.ok(
+      modal.includes("t('widgets.inputPlaceholder')"),
+      'WidgetChatModal must use widgets.inputPlaceholder',
+    );
+    assert.ok(
+      panel.includes("t('widgets.modifyWithAi')"),
+      'CustomWidgetPanel must use widgets.modifyWithAi',
+    );
+    assert.ok(
+      events.includes("t('widgets.confirmDelete')"),
+      'Delete confirmation must use widgets.confirmDelete',
+    );
   });
 
   it('prompt examples are defined and non-empty', () => {
@@ -939,16 +978,13 @@ describe('CustomWidgetPanel — header buttons and events', () => {
   });
 
   it('extends Panel (display-only widget with panel infrastructure)', () => {
-    assert.ok(
-      panel.includes('extends Panel'),
-      'CustomWidgetPanel must extend Panel',
-    );
+    assert.ok(panel.includes('extends Panel'), 'CustomWidgetPanel must extend Panel');
   });
 
   it('renderWidget branches on tier — PRO uses wrapProWidgetHtml', () => {
     assert.ok(
       panel.includes('wrapProWidgetHtml'),
-      "renderWidget must call wrapProWidgetHtml() for PRO tier",
+      'renderWidget must call wrapProWidgetHtml() for PRO tier',
     );
   });
 
@@ -967,10 +1003,7 @@ describe('PRO widget — relay auth and configuration', () => {
   const relay = src('scripts/ais-relay.cjs');
 
   it('PRO_WIDGET_KEY is read from env', () => {
-    assert.ok(
-      relay.includes('PRO_WIDGET_KEY'),
-      'PRO_WIDGET_KEY must be defined from env',
-    );
+    assert.ok(relay.includes('PRO_WIDGET_KEY'), 'PRO_WIDGET_KEY must be defined from env');
   });
 
   it('PRO_WIDGET_RATE_LIMIT is 20', () => {
@@ -1019,8 +1052,8 @@ describe('PRO widget — relay auth and configuration', () => {
   it('invalid tier value rejected with 400', () => {
     assert.ok(
       relay.includes("tier !== 'basic' && tier !== 'pro'") ||
-      relay.includes("!['basic', 'pro'].includes(tier)") ||
-      (relay.includes("tier === 'pro'") && relay.includes('400')),
+        relay.includes("!['basic', 'pro'].includes(tier)") ||
+        (relay.includes("tier === 'pro'") && relay.includes('400')),
       'Invalid tier must be rejected with 400',
     );
   });
@@ -1036,10 +1069,7 @@ describe('PRO widget — relay auth and configuration', () => {
   });
 
   it('PRO uses claude-sonnet model (not haiku)', () => {
-    assert.ok(
-      relay.includes('claude-sonnet'),
-      'PRO tier must use claude-sonnet model',
-    );
+    assert.ok(relay.includes('claude-sonnet'), 'PRO tier must use claude-sonnet model');
   });
 
   it('PRO max_tokens is 8192', () => {
@@ -1048,7 +1078,8 @@ describe('PRO widget — relay auth and configuration', () => {
       relay.includes('isPro ? 8192') || relay.includes('isPro?8192') || relay.includes('8192'),
       'PRO max_tokens must be 8192',
     );
-    const tokenMatch = relay.match(/maxTokens\s*=\s*isPro\s*\?\s*8192/) || relay.match(/isPro\s*\?\s*8192/);
+    const tokenMatch =
+      relay.match(/maxTokens\s*=\s*isPro\s*\?\s*8192/) || relay.match(/isPro\s*\?\s*8192/);
     assert.ok(tokenMatch, 'maxTokens must be set to 8192 when isPro');
   });
 
@@ -1072,7 +1103,9 @@ describe('PRO widget — relay auth and configuration', () => {
     const promptIdx = relay.lastIndexOf('WIDGET_PRO_SYSTEM_PROMPT');
     const promptRegion = relay.slice(promptIdx, promptIdx + 6000);
     assert.ok(
-      promptRegion.includes('cdn.jsdelivr.net') || promptRegion.includes('chart.js') || promptRegion.includes('Chart.js'),
+      promptRegion.includes('cdn.jsdelivr.net') ||
+        promptRegion.includes('chart.js') ||
+        promptRegion.includes('Chart.js'),
       'PRO system prompt must mention cdn.jsdelivr.net/Chart.js as allowed CDN',
     );
   });
@@ -1099,10 +1132,7 @@ describe('PRO widget — store and sanitizer', () => {
       store.includes("'wm-pro-key'"),
       "isProWidgetEnabled must know the legacy 'wm-pro-key' name for migration",
     );
-    assert.ok(
-      store.includes('isProWidgetEnabled'),
-      'isProWidgetEnabled function must be exported',
-    );
+    assert.ok(store.includes('isProWidgetEnabled'), 'isProWidgetEnabled function must be exported');
     assert.ok(
       store.includes('migrateLegacyKeysToHttpOnlySession') &&
         browserKeySession.includes('establishWmKeySession'),
@@ -1121,7 +1151,8 @@ describe('PRO widget — store and sanitizer', () => {
   it('user identity migrates legacy wm-pro-key instead of reading localStorage directly', () => {
     const identity = src('src/services/user-identity.ts');
     assert.ok(
-      identity.includes('readLegacySessionKey') && identity.includes('migrateLegacyKeysToHttpOnlySession'),
+      identity.includes('readLegacySessionKey') &&
+        identity.includes('migrateLegacyKeysToHttpOnlySession'),
       'user-identity must route legacy wm-pro-key through the HttpOnly migration helper',
     );
     assert.ok(
@@ -1207,10 +1238,7 @@ describe('PRO widget — store and sanitizer', () => {
       fnBody.includes('sandbox="allow-scripts"') || fnBody.includes("sandbox='allow-scripts'"),
       'iframe sandbox must be exactly "allow-scripts" — no allow-same-origin',
     );
-    assert.ok(
-      !fnBody.includes('allow-same-origin'),
-      'sandbox must NOT include allow-same-origin',
-    );
+    assert.ok(!fnBody.includes('allow-same-origin'), 'sandbox must NOT include allow-same-origin');
   });
 
   it('widget document builder places CSP as first head child (client-owned skeleton)', () => {
@@ -1261,12 +1289,13 @@ describe('PRO widget — store and sanitizer', () => {
       'parent must bind ready messages to the mounted iframe window',
     );
     assert.ok(
-      san.includes('event.data.id !== mounted.id')
-        && san.includes('event.data.token !== mounted.token'),
+      san.includes('event.data.id !== mounted.id') &&
+        san.includes('event.data.token !== mounted.token'),
       'parent must verify ready message id and token before sending HTML',
     );
     assert.ok(
-      sandbox.includes('e.source !== window.parent') && sandbox.includes('e.data.token !== widgetToken'),
+      sandbox.includes('e.source !== window.parent') &&
+        sandbox.includes('e.data.token !== widgetToken'),
       'sandbox must only accept HTML from its parent with the expected token',
     );
   });
@@ -1292,28 +1321,29 @@ describe('PRO widget — store and sanitizer', () => {
       'sandbox-to-parent readiness must target the parsed parentOrigin, not a wildcard',
     );
     assert.ok(
-      !/window\.parent\.postMessage\(\s*\{[\s\S]*?type:\s*['"]wm-widget-ready['"][\s\S]*?\},\s*(['"])\*\1/.test(sandbox),
+      !/window\.parent\.postMessage\(\s*\{[\s\S]*?type:\s*['"]wm-widget-ready['"][\s\S]*?\},\s*(['"])\*\1/.test(
+        sandbox,
+      ),
       'sandbox readiness postMessage must not use wildcard targetOrigin',
     );
   });
 
   it('widget sandbox allows approved Vercel previews and rejects lookalike origins', () => {
     assert.ok(
-      sandbox.includes("url.hostname === 'worldmonitor.app'")
-        && sandbox.includes("url.hostname.endsWith('.worldmonitor.app')"),
+      sandbox.includes("url.hostname === 'worldmonitor.app'") &&
+        sandbox.includes("url.hostname.endsWith('.worldmonitor.app')"),
       'sandbox must parse hostname and allow the worldmonitor.app apex/subdomains only',
     );
     assert.ok(
-      !sandbox.includes("endsWith('worldmonitor.app')") && !sandbox.includes('endsWith("worldmonitor.app")'),
+      !sandbox.includes("endsWith('worldmonitor.app')") &&
+        !sandbox.includes('endsWith("worldmonitor.app")'),
       'sandbox must not use raw suffix checks that allow evilworldmonitor.app',
     );
     // The sandbox must source allowed Vercel team slugs from a single named
     // list — keeps the security invariant (team-slug gating) visible and
     // makes teammate-slug additions a one-line change rather than a regex
     // rewrite that could accidentally widen the match.
-    const teamListMatch = sandbox.match(
-      /var\s+ALLOWED_VERCEL_TEAM_SLUGS\s*=\s*\[([^\]]*)\];/,
-    );
+    const teamListMatch = sandbox.match(/var\s+ALLOWED_VERCEL_TEAM_SLUGS\s*=\s*\[([^\]]*)\];/);
     assert.ok(teamListMatch, 'sandbox must declare ALLOWED_VERCEL_TEAM_SLUGS as a literal array');
     const slugs = teamListMatch[1]
       .split(',')
@@ -1397,7 +1427,10 @@ describe('PRO widget — store and sanitizer', () => {
 
     const allowed = runSandbox('https://worldmonitor-git-feature-eliewm.vercel.app/dashboard');
     assert.equal(allowed.readyMessages.length, 1);
-    assert.equal(allowed.readyMessages[0].targetOrigin, 'https://worldmonitor-git-feature-eliewm.vercel.app');
+    assert.equal(
+      allowed.readyMessages[0].targetOrigin,
+      'https://worldmonitor-git-feature-eliewm.vercel.app',
+    );
     assert.deepEqual(JSON.parse(JSON.stringify(allowed.readyMessages[0].payload)), {
       type: 'wm-widget-ready',
       id: 'wm-1',
@@ -1488,7 +1521,10 @@ describe('PRO widget — store and sanitizer', () => {
         if (event.immediatePropagationStopped) break;
         if (entry.options?.once) {
           const current = this.listeners.get(event.type) ?? [];
-          this.listeners.set(event.type, current.filter((candidate) => candidate !== entry));
+          this.listeners.set(
+            event.type,
+            current.filter((candidate) => candidate !== entry),
+          );
         }
       }
       return true;
@@ -1513,8 +1549,9 @@ describe('PRO widget — store and sanitizer', () => {
         sandboxWindow.addEventListener('beforeunload', () => {
           sandboxWindow.beforeUnloadCalls++;
         });
-        guardedAtWrite = sandboxWindow.onbeforeunload === null
-          && (sandboxWindow.listeners.get('beforeunload')?.length ?? 0) === 1;
+        guardedAtWrite =
+          sandboxWindow.onbeforeunload === null &&
+          (sandboxWindow.listeners.get('beforeunload')?.length ?? 0) === 1;
 
         for (const match of html.matchAll(/<script>([\s\S]*?)<\/script>/gi)) {
           vm.runInContext(match[1], vmContext);
@@ -1567,12 +1604,32 @@ window.dispatchEvent(new Event('click'));
       });
     });
 
-    assert.equal(guardedAtWrite, true, 'beforeunload guard must be active when document.write starts');
-    assert.equal(sandboxWindow.onbeforeunload, null, 'onbeforeunload assignments must remain inert');
+    assert.equal(
+      guardedAtWrite,
+      true,
+      'beforeunload guard must be active when document.write starts',
+    );
+    assert.equal(
+      sandboxWindow.onbeforeunload,
+      null,
+      'onbeforeunload assignments must remain inert',
+    );
     sandboxWindow.onbeforeunload = () => 'still blocked';
-    assert.equal(sandboxWindow.onbeforeunload, null, 'ordinary reassignment must not restore onbeforeunload');
-    assert.equal(sandboxWindow.beforeUnloadCalls, 0, 'the native stopper must block later beforeunload handlers');
-    assert.equal(sandboxWindow.clickCalls, 1, 'listener objects and normal event options must still work');
+    assert.equal(
+      sandboxWindow.onbeforeunload,
+      null,
+      'ordinary reassignment must not restore onbeforeunload',
+    );
+    assert.equal(
+      sandboxWindow.beforeUnloadCalls,
+      0,
+      'the native stopper must block later beforeunload handlers',
+    );
+    assert.equal(
+      sandboxWindow.clickCalls,
+      1,
+      'listener objects and normal event options must still work',
+    );
   });
 
   it('PRO widget message listener has AbortController cleanup wired to iframe removal', () => {
@@ -1589,18 +1646,19 @@ window.dispatchEvent(new Event('click'));
       'mountProWidget must create an AbortController per iframe and store it',
     );
     assert.ok(
-      san.includes("{ signal: controller.signal }"),
+      san.includes('{ signal: controller.signal }'),
       'message listener must be registered with the AbortController signal so abort() removes it',
     );
     assert.ok(
-      san.includes('function unmountProWidget') && san.includes('controller.abort')
-        || (san.includes('function unmountProWidget') && san.includes('iframeAbortStore.get(iframe)?.abort()')),
+      (san.includes('function unmountProWidget') && san.includes('controller.abort')) ||
+        (san.includes('function unmountProWidget') &&
+          san.includes('iframeAbortStore.get(iframe)?.abort()')),
       'unmountProWidget must abort the controller (tearing down the listener)',
     );
     assert.ok(
-      san.includes('iframeAbortStore.delete(iframe)')
-        && san.includes('iframeTokenStore.delete(iframe)')
-        && san.includes('iframeHtmlStore.delete(iframe)'),
+      san.includes('iframeAbortStore.delete(iframe)') &&
+        san.includes('iframeTokenStore.delete(iframe)') &&
+        san.includes('iframeHtmlStore.delete(iframe)'),
       'unmountProWidget must clear every per-iframe WeakMap entry to release the HTML payload',
     );
     assert.ok(
@@ -1659,10 +1717,7 @@ window.dispatchEvent(new Event('click'));
     // Script must appear before <body> so Chart is defined when body scripts run
     const scriptPos = san.indexOf('chart.js');
     const bodyPos = san.indexOf('<body>');
-    assert.ok(
-      scriptPos < bodyPos,
-      'Chart.js script tag must be in <head>, before <body>',
-    );
+    assert.ok(scriptPos < bodyPos, 'Chart.js script tag must be in <head>, before <body>');
   });
 });
 
@@ -1706,15 +1761,12 @@ describe('PRO widget — modal and layout integration', () => {
   });
 
   it('pendingSaveSpec includes tier field', () => {
-    assert.ok(
-      modal.includes('pendingSaveSpec'),
-      'Modal must use pendingSaveSpec before saving',
-    );
+    assert.ok(modal.includes('pendingSaveSpec'), 'Modal must use pendingSaveSpec before saving');
     // tier should be part of the spec being saved
     const specIdx = modal.indexOf('pendingSaveSpec');
     const specRegion = modal.slice(specIdx, specIdx + 200);
     assert.ok(
-      specRegion.includes('tier') || modal.includes("tier: currentTier"),
+      specRegion.includes('tier') || modal.includes('tier: currentTier'),
       'pendingSaveSpec must include tier field',
     );
   });
@@ -1743,7 +1795,9 @@ describe('PRO widget — modal and layout integration', () => {
     // Use 1200 chars to cover the full button element including the click handler
     const proButtonRegion = layout.slice(proButtonIdx, proButtonIdx + 1200);
     assert.ok(
-      proButtonRegion.includes("tier: 'pro'") || proButtonRegion.includes("tier:'pro'") || proButtonRegion.includes('"pro"'),
+      proButtonRegion.includes("tier: 'pro'") ||
+        proButtonRegion.includes("tier:'pro'") ||
+        proButtonRegion.includes('"pro"'),
       "PRO button must open modal with tier: 'pro'",
     );
   });
@@ -1756,11 +1810,7 @@ describe('PRO widget — i18n keys and CSS', () => {
   const en = JSON.parse(src('src/locales/en.json'));
   const css = src('src/styles/main.css');
 
-  const PRO_REQUIRED_KEYS = [
-    'createInteractive',
-    'proBadge',
-    'preflightProUnavailable',
-  ];
+  const PRO_REQUIRED_KEYS = ['createInteractive', 'proBadge', 'preflightProUnavailable'];
 
   for (const key of PRO_REQUIRED_KEYS) {
     it(`widgets.${key} is defined and non-empty`, () => {
@@ -1818,7 +1868,9 @@ describe('widget-agent edge proxy — Convex entitlement fallback', () => {
 
   it('imports getEntitlements from server/_shared/entitlement-check', () => {
     assert.ok(
-      /import\s*\{[^}]*\bgetEntitlements\b[^}]*\}\s*from\s*['"][^'"]*entitlement-check['"]/.test(edge),
+      /import\s*\{[^}]*\bgetEntitlements\b[^}]*\}\s*from\s*['"][^'"]*entitlement-check['"]/.test(
+        edge,
+      ),
       'api/widget-agent.ts must import getEntitlements for Dodo entitlement fallback',
     );
   });
@@ -1880,14 +1932,17 @@ describe('widget-agent relay — error classifier', () => {
 
   it('catch block routes through classifyWidgetAgentError instead of hardcoded "Agent error"', () => {
     // Find the catch block in the widget-agent handler.
-    const catchIdx = relay.indexOf("classifyWidgetAgentError");
+    const catchIdx = relay.indexOf('classifyWidgetAgentError');
     assert.ok(catchIdx !== -1, 'classifyWidgetAgentError must be called somewhere in the relay');
     // The catch site must NOT still emit the literal "Agent error" string as
     // its primary message — the classifier covers the fallback case itself.
     // Allow the literal in the classifier's last-resort branch only.
     const handlerStart = relay.indexOf('async function handleWidgetAgentRequest');
     const handlerEnd = relay.indexOf('async function ', handlerStart + 1);
-    const handlerRegion = relay.slice(handlerStart, handlerEnd > handlerStart ? handlerEnd : handlerStart + 5000);
+    const handlerRegion = relay.slice(
+      handlerStart,
+      handlerEnd > handlerStart ? handlerEnd : handlerStart + 5000,
+    );
     assert.ok(
       !/sendWidgetSSE\([^)]*'error'[^)]*'Agent error'/.test(handlerRegion),
       'catch site must NOT hardcode "Agent error" — route through classifyWidgetAgentError so the client sees actionable diagnostics',
@@ -1924,7 +1979,8 @@ describe('widget-agent relay — error classifier', () => {
     const fnIdx = relay.indexOf('function classifyWidgetAgentError');
     const region = relay.slice(fnIdx, fnIdx + 3000);
     assert.ok(
-      /sk-(?:ant-)?\[A-Za-z0-9_-\]\{20,?\}/.test(region) || /sk-\(\?:ant-\)\?\[A-Za-z0-9_-\]/.test(region),
+      /sk-(?:ant-)?\[A-Za-z0-9_-\]\{20,?\}/.test(region) ||
+        /sk-\(\?:ant-\)\?\[A-Za-z0-9_-\]/.test(region),
       'Classifier fallback must redact `sk-…` / `sk-ant-…` API keys before surfacing the message',
     );
     assert.ok(
@@ -1939,7 +1995,11 @@ describe('widget-agent relay — error classifier', () => {
     assert.ok(fnMatch, 'classifyWidgetAgentError function not extractable');
     const fn = new Function(`${fnMatch[0]}; return classifyWidgetAgentError;`)();
     const out = fn(
-      { status: 400, error: { type: 'invalid_request_error' }, message: 'bad header sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA was rejected' },
+      {
+        status: 400,
+        error: { type: 'invalid_request_error' },
+        message: 'bad header sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA was rejected',
+      },
       'claude-sonnet-4-6',
     );
     assert.ok(
@@ -1957,11 +2017,25 @@ describe('widget-agent relay — error classifier', () => {
     assert.ok(fnMatch, 'classifyWidgetAgentError function not extractable');
     const fn = new Function(`${fnMatch[0]}; return classifyWidgetAgentError;`)();
     // Real Anthropic Node SDK timeout shape: name='APITimeoutError', status=408
-    const apiTimeout = fn({ name: 'APITimeoutError', status: 408, message: 'Request timeout.' }, 'claude-sonnet-4-6');
-    assert.equal(apiTimeout, 'AI backend timed out', 'APITimeoutError must classify as timed-out, not fallback');
+    const apiTimeout = fn(
+      { name: 'APITimeoutError', status: 408, message: 'Request timeout.' },
+      'claude-sonnet-4-6',
+    );
+    assert.equal(
+      apiTimeout,
+      'AI backend timed out',
+      'APITimeoutError must classify as timed-out, not fallback',
+    );
     // AbortSignal.timeout() shape (DOMException): name='TimeoutError'
-    const abortTimeout = fn({ name: 'TimeoutError', message: 'The operation timed out.' }, 'claude-sonnet-4-6');
-    assert.equal(abortTimeout, 'AI backend timed out', 'AbortSignal TimeoutError must also classify as timed-out');
+    const abortTimeout = fn(
+      { name: 'TimeoutError', message: 'The operation timed out.' },
+      'claude-sonnet-4-6',
+    );
+    assert.equal(
+      abortTimeout,
+      'AI backend timed out',
+      'AbortSignal TimeoutError must also classify as timed-out',
+    );
     // Bare 408 status (some HTTP layers expose only the code) — same branch.
     const bare408 = fn({ status: 408 }, 'claude-sonnet-4-6');
     assert.equal(bare408, 'AI backend timed out', 'Bare status 408 must classify as timed-out');
@@ -1973,14 +2047,24 @@ describe('widget-agent relay — error classifier', () => {
     // shape changes) still classifies as a timeout, not "Invalid request".
     const fnMatch = relay.match(/function classifyWidgetAgentError[\s\S]*?\n\}/);
     const fn = new Function(`${fnMatch[0]}; return classifyWidgetAgentError;`)();
-    const out = fn({ name: 'APITimeoutError', status: 400, message: 'timeout' }, 'claude-sonnet-4-6');
-    assert.equal(out, 'AI backend timed out', 'APITimeoutError must beat the 400 branch regardless of status');
+    const out = fn(
+      { name: 'APITimeoutError', status: 400, message: 'timeout' },
+      'claude-sonnet-4-6',
+    );
+    assert.equal(
+      out,
+      'AI backend timed out',
+      'APITimeoutError must beat the 400 branch regardless of status',
+    );
   });
 
   it('handler logs structured error context with status + type + model', () => {
     const handlerStart = relay.indexOf('async function handleWidgetAgentRequest');
     const handlerEnd = relay.indexOf('async function ', handlerStart + 1);
-    const region = relay.slice(handlerStart, handlerEnd > handlerStart ? handlerEnd : handlerStart + 8000);
+    const region = relay.slice(
+      handlerStart,
+      handlerEnd > handlerStart ? handlerEnd : handlerStart + 8000,
+    );
     // Look for the structured console.error inside the catch.
     assert.ok(
       /console\.error\([^)]*\[widget-agent\][^)]*Error/.test(region),
@@ -2002,7 +2086,10 @@ describe('widget-agent relay — error classifier', () => {
     const handlerStart = relay.indexOf('async function handleWidgetAgentRequest');
     assert.ok(handlerStart !== -1, 'handler not found');
     const handlerEnd = relay.indexOf('async function ', handlerStart + 1);
-    const region = relay.slice(handlerStart, handlerEnd > handlerStart ? handlerEnd : handlerStart + 12000);
+    const region = relay.slice(
+      handlerStart,
+      handlerEnd > handlerStart ? handlerEnd : handlerStart + 12000,
+    );
 
     const declIdx = region.indexOf('let toolCallCount');
     assert.ok(declIdx !== -1, 'toolCallCount declaration not found');
@@ -2040,20 +2127,26 @@ describe('widget-agent relay — error classifier', () => {
 // subscribeAuthState (the prior shape) meant the CTAs stayed display:none for
 // the entire page lifetime for paying users. Lock the dual-subscription.
 describe('panel-layout — Pro add-block gating reacts to entitlement updates', () => {
+  // add-panel-blocks.ts owns the gating logic (extracted from panel-layout.ts).
+  // panel-layout.ts holds the combined unsubscribe handle (unsubscribeProBlocks)
+  // and calls it in destroy().
   const layout = src('src/app/panel-layout.ts');
+  const addPanelBlocks = src('src/app/add-panel-blocks.ts');
 
-  it('imports onEntitlementChange', () => {
+  it('add-panel-blocks imports onEntitlementChange', () => {
     assert.ok(
-      /import\s*\{[^}]*\bonEntitlementChange\b[^}]*\}\s*from\s*['"][^'"]*entitlements['"]/.test(layout),
-      'panel-layout must import onEntitlementChange to re-evaluate Pro CTA gating on Convex snapshots',
+      /import\s*\{[^}]*\bonEntitlementChange\b[^}]*\}\s*from\s*['"][^'"]*entitlements['"]/.test(
+        addPanelBlocks,
+      ),
+      'add-panel-blocks must import onEntitlementChange to re-evaluate Pro CTA gating on Convex snapshots',
     );
   });
 
   it('proBlock + mcpBlock gating subscribes to BOTH auth and entitlement changes', () => {
-    // Anchor on the gating function to scope the search to its surroundings.
-    const gateFnIdx = layout.indexOf('applyProBlockGating');
-    assert.ok(gateFnIdx !== -1, 'applyProBlockGating not found in panel-layout');
-    const region = layout.slice(gateFnIdx, gateFnIdx + 1500);
+    // applyProBlockGating lives in add-panel-blocks.ts (extracted from panel-layout.ts).
+    const gateFnIdx = addPanelBlocks.indexOf('applyProBlockGating');
+    assert.ok(gateFnIdx !== -1, 'applyProBlockGating not found in add-panel-blocks');
+    const region = addPanelBlocks.slice(gateFnIdx, gateFnIdx + 1500);
     assert.ok(
       region.includes('subscribeAuthState'),
       'Pro CTA gating must subscribe to subscribeAuthState (legacy auth-driven path)',
@@ -2064,18 +2157,19 @@ describe('panel-layout — Pro add-block gating reacts to entitlement updates', 
     );
   });
 
-  it('teardown clears the entitlement subscription so a destroyed layout does not leak callbacks', () => {
+  it('teardown clears the pro-block subscription so a destroyed layout does not leak callbacks', () => {
+    // The combined auth+entitlement unsubscribe is held as unsubscribeProBlocks
+    // (was proBlockEntitlementUnsubscribe before add-panel-blocks.ts extraction).
     assert.ok(
-      layout.includes('proBlockEntitlementUnsubscribe'),
-      'panel-layout must hold a proBlockEntitlementUnsubscribe handle and clear it in destroy()',
+      layout.includes('unsubscribeProBlocks'),
+      'panel-layout must hold an unsubscribeProBlocks handle and clear it in destroy()',
     );
-    // Look for the destroy() block
     const destroyIdx = layout.indexOf('destroy(): void {');
     assert.ok(destroyIdx !== -1, 'destroy() not found');
     const destroyRegion = layout.slice(destroyIdx, destroyIdx + 2000);
     assert.ok(
-      destroyRegion.includes('proBlockEntitlementUnsubscribe'),
-      'destroy() must invoke proBlockEntitlementUnsubscribe to avoid leaking callbacks across layout init/destroy cycles',
+      destroyRegion.includes('unsubscribeProBlocks'),
+      'destroy() must invoke unsubscribeProBlocks to avoid leaking callbacks across layout init/destroy cycles',
     );
   });
 });
@@ -2118,7 +2212,10 @@ describe('entitlement-check — cache-write failure does not collapse confirmed 
     // The catch block for cache write must NOT contain `return null` — that
     // would re-introduce the bug. It also must not rethrow.
     const cacheCatchMatch = region.match(/catch\s*\(\s*cacheErr[^)]*\)\s*\{([^}]*)\}/);
-    assert.ok(cacheCatchMatch, 'cache-write catch block must be named distinctly (e.g. cacheErr) so future readers see the intent');
+    assert.ok(
+      cacheCatchMatch,
+      'cache-write catch block must be named distinctly (e.g. cacheErr) so future readers see the intent',
+    );
     const cacheCatchBody = cacheCatchMatch[1];
     assert.ok(
       !/return\s+null/.test(cacheCatchBody),
@@ -2164,8 +2261,8 @@ describe('WidgetChatModal — preflight 403 message branches on auth mode', () =
 
   it('en.json defines widgets.preflightProSubscriptionRequired (just-upgraded / outage)', () => {
     assert.ok(
-      typeof en.widgets?.preflightProSubscriptionRequired === 'string'
-        && en.widgets.preflightProSubscriptionRequired.length > 0,
+      typeof en.widgets?.preflightProSubscriptionRequired === 'string' &&
+        en.widgets.preflightProSubscriptionRequired.length > 0,
       'en.json must define widgets.preflightProSubscriptionRequired',
     );
     assert.ok(
@@ -2176,8 +2273,8 @@ describe('WidgetChatModal — preflight 403 message branches on auth mode', () =
 
   it('en.json defines widgets.preflightProRequired (free-user upgrade ask, no "just upgraded" language)', () => {
     assert.ok(
-      typeof en.widgets?.preflightProRequired === 'string'
-        && en.widgets.preflightProRequired.length > 0,
+      typeof en.widgets?.preflightProRequired === 'string' &&
+        en.widgets.preflightProRequired.length > 0,
       'en.json must define widgets.preflightProRequired',
     );
     assert.ok(
@@ -2213,7 +2310,10 @@ describe('widget-agent edge proxy — fail-closed observability', () => {
       /console\.warn\([^)]*widget-agent[^)]*pro-required/i.test(before),
       'A console.warn naming "widget-agent" + "pro-required" must precede the 403 return',
     );
-    assert.ok(before.includes('reason'), 'Structured log must include "reason" field (not_entitled vs service_unavailable)');
+    assert.ok(
+      before.includes('reason'),
+      'Structured log must include "reason" field (not_entitled vs service_unavailable)',
+    );
     assert.ok(before.includes('userId'), 'Structured log must include userId for grep/correlation');
     assert.ok(
       before.includes('service_unavailable') && before.includes('not_entitled'),

@@ -255,12 +255,21 @@ describe('news panel ↔ feed coverage (panel-layout createNewsPanel ⇔ feeds.t
     assert.ok(canonicalKeys.size > 0, 'parsed 0 canonical feed keys');
 
     const createNewsPanelKeys = new Set<string>();
+    // Legacy: createNewsPanel('X') calls (removed in Phase 7 — now via PANEL_REGISTRY).
     const re = /createNewsPanel\(\s*'([^']+)'/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(panelLayoutSrc)) !== null) {
       if (m[1]) createNewsPanelKeys.add(m[1]);
     }
-    assert.ok(createNewsPanelKeys.size > 0, 'parsed 0 createNewsPanel keys from panel-layout.ts');
+    // Phase 7: news panels migrated to PANEL_REGISTRY + REGISTRY_NEWS_PANEL_IDS.
+    // Parse the set from panel-layout.ts source.
+    const registryIdsMatch = panelLayoutSrc.match(/REGISTRY_NEWS_PANEL_IDS\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+    if (registryIdsMatch) {
+      for (const rm of registryIdsMatch[1]!.matchAll(/'([^']+)'/g)) {
+        createNewsPanelKeys.add(rm[1]!);
+      }
+    }
+    assert.ok(createNewsPanelKeys.size > 0, 'parsed 0 createNewsPanel/REGISTRY_NEWS_PANEL_IDS keys from panel-layout.ts');
 
     const orphans = [...createNewsPanelKeys]
       .filter(k => !canonicalKeys.has(k) && !SPECIAL_CASED.has(k))

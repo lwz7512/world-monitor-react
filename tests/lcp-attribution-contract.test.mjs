@@ -8,29 +8,34 @@ const readSrc = (path) => readFileSync(join(repoRoot, path), 'utf8');
 
 describe('LCP attribution debug contract', () => {
   it('installs the attribution observer before App construction', () => {
-    const src = readSrc('src/main.ts');
+    // React migration: main.ts renamed to main.tsx; App class replaced by createRoot(<AppRoot />)
+    const src = readSrc('src/main.tsx');
     const installIndex = src.indexOf('installLcpAttributionDebug();');
-    const appIndex = src.indexOf('new App(');
+    const appIndex = src.indexOf('createRoot(');
 
-    assert.ok(installIndex >= 0, 'main.ts must install LCP attribution debug');
-    assert.ok(appIndex >= 0, 'main.ts must construct App');
-    assert.ok(installIndex < appIndex, 'LCP attribution debug must install before App construction');
+    assert.ok(installIndex >= 0, 'main.tsx must install LCP attribution debug');
+    assert.ok(appIndex >= 0, 'main.tsx must render AppRoot');
+    assert.ok(installIndex < appIndex, 'LCP attribution debug must install before AppRoot render');
   });
 
   it('registers LCP RUM reporting before App construction', () => {
-    const src = readSrc('src/main.ts');
+    // React migration: main.ts renamed to main.tsx; App class replaced by createRoot(<AppRoot />)
+    const src = readSrc('src/main.tsx');
     const importIndex = src.indexOf("import { registerLcpReporting } from '@/bootstrap/lcp-report';");
     const registerIndex = src.indexOf('registerLcpReporting();');
-    const appIndex = src.indexOf('new App(');
+    const appIndex = src.indexOf('createRoot(');
 
-    assert.ok(importIndex >= 0, 'main.ts must import registerLcpReporting');
-    assert.ok(registerIndex >= 0, 'main.ts must register LCP RUM reporting');
-    assert.ok(appIndex >= 0, 'main.ts must construct App');
-    assert.ok(registerIndex < appIndex, 'LCP RUM reporting must register before App construction');
+    assert.ok(importIndex >= 0, 'main.tsx must import registerLcpReporting');
+    assert.ok(registerIndex >= 0, 'main.tsx must register LCP RUM reporting');
+    assert.ok(appIndex >= 0, 'main.tsx must render AppRoot');
+    assert.ok(registerIndex < appIndex, 'LCP RUM reporting must register before AppRoot render');
   });
 
   it('marks the boot gates that can delay final LCP', () => {
-    const appSrc = readSrc('src/App.ts');
+    // React migration: boot marks live in app-lifecycle.ts (initApp), post-lcp.ts (post-LCP phases)
+    const lifecycleSrc = readSrc('src/app/app-lifecycle.ts');
+    const postLcpSrc = readSrc('src/app/post-lcp.ts');
+    const combinedSrc = lifecycleSrc + '\n' + postLcpSrc;
     for (const mark of [
       'wm:boot:app-init-start',
       'wm:boot:i18n-ready',
@@ -45,7 +50,7 @@ describe('LCP attribution debug contract', () => {
       'wm:data:initial-fanout-start',
       'wm:data:initial-fanout-complete',
     ]) {
-      assert.ok(appSrc.includes(`markLcpDebug('${mark}'`), `missing App LCP mark ${mark}`);
+      assert.ok(combinedSrc.includes(`markLcpDebug('${mark}'`), `missing App LCP mark ${mark}`);
     }
   });
 
@@ -131,13 +136,15 @@ describe('LCP attribution debug contract', () => {
   });
 
   it('skips the post-LCP replay when geometry was already applied during the fan-out (#4512)', () => {
-    const appSrc = readSrc('src/App.ts');
+    // React migration: geometry snapshot lives in app-lifecycle.ts (initApp); replay guard in post-lcp.ts
+    const lifecycleSrc = readSrc('src/app/app-lifecycle.ts');
+    const postLcpSrc = readSrc('src/app/post-lcp.ts');
     // The replay is a full second CII compute + choropleth repaint; it must only
     // run when the fan-out ingested before geometry was ready.
-    assert.ok(appSrc.includes('isCountryGeometryLoaded()'), 'App must snapshot geometry readiness before the fan-out');
+    assert.ok(lifecycleSrc.includes('isCountryGeometryLoaded()'), 'app-lifecycle must snapshot geometry readiness before the fan-out');
     assert.match(
-      appSrc,
-      /if \(!geometryAlreadyApplied\) \{\s*this\.dataLoader\.refreshGeometryDependentCiiAfterCountryGeometry\(\);/s,
+      postLcpSrc,
+      /if \(!geometryAlreadyApplied\) \{\s*dataLoader\.refreshGeometryDependentCiiAfterCountryGeometry\(\);/s,
       'replay must be guarded by !geometryAlreadyApplied',
     );
   });

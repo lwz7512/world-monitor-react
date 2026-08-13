@@ -401,26 +401,22 @@ describe('country-scoped panels — chip placement keeps close button rightmost'
   });
 
   it('DisplacementPanel destroy removes the inserted followed-only host', () => {
-    const src = readFileSync(resolve(ROOT, 'src/components/DisplacementPanel.ts'), 'utf8');
-    assert.match(
-      src,
-      /private followedOnlyHost: HTMLElement \| null = null;/,
-      'DisplacementPanel must retain the inserted header host for cleanup',
+    // React: the followed-countries subscription is set up in a useEffect whose
+    // return value is the unsubscribe function — React calls it automatically on
+    // unmount. No explicit removeChild / null-out of a host element is needed.
+    const src = readFileSync(
+      resolve(ROOT, 'src/components/panels/DisplacementPanel.tsx'),
+      'utf8',
     );
     assert.match(
       src,
-      /this\.followedOnlyHost = host;/,
-      'DisplacementPanel must store the host when mounting the chip',
+      /subscribe as subscribeFollowed/,
+      'DisplacementPanel must import the followed-countries subscribe function',
     );
     assert.match(
       src,
-      /this\.followedOnlyHost\.parentElement\.removeChild\(this\.followedOnlyHost\)/,
-      'destroy() must remove the chip host from the panel header',
-    );
-    assert.match(
-      src,
-      /this\.followedOnlyHost = null;/,
-      'destroy() must clear the host reference',
+      /useEffect\(\(\) => subscribeFollowed\(/,
+      'DisplacementPanel must subscribe to followed-countries changes in a useEffect so cleanup is automatic on unmount',
     );
   });
 });

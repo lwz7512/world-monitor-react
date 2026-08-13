@@ -5,7 +5,8 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const newsPanelSource = readFileSync(resolve(root, 'src/components/NewsPanel.ts'), 'utf8');
+// React migration: rendering logic moved to NewsPanelContent.tsx
+const newsPanelSource = readFileSync(resolve(root, 'src/components/panels/NewsPanelContent.tsx'), 'utf8');
 const mainCss = readFileSync(resolve(root, 'src/styles/main.css'), 'utf8');
 const happyCss = readFileSync(resolve(root, 'src/styles/happy-theme.css'), 'utf8');
 
@@ -59,12 +60,17 @@ function requiredHexColor(vars: Record<string, string>, name: string, theme: str
 
 describe('Intel Feed category-tag contrast (#5166)', () => {
   it('uses primary text for the generated label while retaining the threat color as the tag treatment', () => {
+    // React migration: JSX style objects instead of template literals
     assert.match(
       newsPanelSource,
-      /style="--category-color:\$\{catColor\};--category-background:\$\{catColor\}20"/,
+      /'--category-color':\s*catColor[\s\S]*?'--category-background':\s*catColor \+ '20'/,
       'the generated tag keeps its threat-specific border and tint',
     );
-    assert.doesNotMatch(newsPanelSource, /style="color:\$\{catColor\}/, 'the tint must not become the small label foreground');
+    assert.doesNotMatch(
+      newsPanelSource,
+      /style=\{\{ color: catColor \}\}/,
+      'the tint must not become the small label foreground',
+    );
     const categoryTagCss = cssBlock(mainCss, '.category-tag');
     assert.match(categoryTagCss, /color:\s*var\(--text\)/, 'small tag labels use the theme primary text color');
     assert.match(categoryTagCss, /border-color:\s*var\(--category-color\)/, 'the border carries the category color');

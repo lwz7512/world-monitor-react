@@ -12,7 +12,8 @@ const protoSrc = readFileSync(join(root, 'proto/worldmonitor/trade/v1/get_tariff
 const tradeDataProtoSrc = readFileSync(join(root, 'proto/worldmonitor/trade/v1/trade_data.proto'), 'utf-8');
 const seedSrc = readFileSync(join(root, 'scripts/seed-supply-chain-trade.mjs'), 'utf-8');
 const healthSrc = readFileSync(join(root, 'api/health.js'), 'utf-8');
-const panelSrc = readFileSync(join(root, 'src/components/TradePolicyPanel.ts'), 'utf-8');
+// React migration: TradePolicyPanel.ts → TradePolicyPanel.tsx
+const panelSrc = readFileSync(join(root, 'src/components/panels/TradePolicyPanel.tsx'), 'utf-8');
 const serviceSrc = readFileSync(join(root, 'src/services/trade/index.ts'), 'utf-8');
 const clientGeneratedSrc = readFileSync(join(root, 'src/generated/client/worldmonitor/trade/v1/service_client.ts'), 'utf-8');
 const serverGeneratedSrc = readFileSync(join(root, 'src/generated/server/worldmonitor/trade/v1/service_server.ts'), 'utf-8');
@@ -219,7 +220,8 @@ describe('Trade policy tariff panel', () => {
   });
 
   it('adds inline US effective-rate context on the overview card', () => {
-    assert.match(panelSrc, /renderRestrictionEffectiveContext/);
+    // React migration: renderRestrictionEffectiveContext → RestrictionEffectiveContext (React component)
+    assert.match(panelSrc, /RestrictionEffectiveContext/);
     assert.match(panelSrc, /components\.tradePolicy\.gapVsMfnLabel/);
   });
 });

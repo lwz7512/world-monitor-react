@@ -20,7 +20,8 @@ import { resolve } from 'node:path';
 // up the full App.ts runtime.
 
 const REPO_ROOT = resolve(import.meta.dirname, '..');
-const APP_TS = readFileSync(resolve(REPO_ROOT, 'src/App.ts'), 'utf8');
+// React migration: App.ts class deleted; firePremiumLoaders moved to useAuthLifecycle.ts
+const APP_TS = readFileSync(resolve(REPO_ROOT, 'src/hooks/useAuthLifecycle.ts'), 'utf8');
 const DATA_LOADER_TS = readFileSync(resolve(REPO_ROOT, 'src/app/data-loader.ts'), 'utf8');
 
 // Loaders we deliberately do NOT include in the fan-out, with rationale.
@@ -74,17 +75,18 @@ function extractGatedLoaders(src: string): Set<string> {
   return loaders;
 }
 
-/** Pull every `void this.dataLoader.loadX()` call from inside the firePremiumLoaders block. */
+/** Pull every `void c.dataLoader?.loadX()` (or `void this.dataLoader.loadX()`) call from inside the firePremiumLoaders block. */
 function extractFanOutLoaders(src: string): Set<string> {
   const start = src.indexOf('const firePremiumLoaders');
-  assert.ok(start >= 0, 'could not locate firePremiumLoaders in App.ts — refactor would silently bypass this guard');
-  // Match until the closing `};` of the function body. The function ends with `_prevHadPremium = nowPremium;\n    };`.
+  assert.ok(start >= 0, 'could not locate firePremiumLoaders in useAuthLifecycle.ts — refactor would silently bypass this guard');
+  // Match until the closing `};` of the function body.
   const end = src.indexOf('\n    };', start);
   assert.ok(end > start, 'could not locate end of firePremiumLoaders block');
   const block = src.slice(start, end);
 
   const loaders = new Set<string>();
-  const re = /void\s+this\.dataLoader\.load([A-Z][A-Za-z0-9]+)\(\)/g;
+  // React migration: calls are now `void c.dataLoader?.loadX()` instead of `void this.dataLoader.loadX()`
+  const re = /void\s+(?:this\.dataLoader|c\.dataLoader\?)\.load([A-Z][A-Za-z0-9]+)\(\)/g;
   for (const match of block.matchAll(re)) {
     loaders.add(`load${match[1]}`);
   }

@@ -32,7 +32,7 @@ function countMatches(source, pattern) {
 
 describe('forecast integrity and provenance surfaces', () => {
   it('labels simulation path confidence separately from event probability', () => {
-    const src = read('src/components/ForecastPanel.ts');
+    const src = read('src/components/panels/ForecastPanel.tsx');
     assert.match(src, /% confidence` : '—'/);
     assert.doesNotMatch(src, /p\.confidence \* 100\)}% probability/);
   });
@@ -50,10 +50,11 @@ describe('forecast integrity and provenance surfaces', () => {
   });
 
   it('does not repeat backend-unavailable detail in degraded forecast notices', () => {
-    const src = read('src/components/ForecastPanel.ts');
+    const src = read('src/components/panels/ForecastPanel.tsx');
 
-    assert.match(src, /const errorDetail = this\.sourceState\.degraded \? '' : this\.sourceState\.error\.replace/);
-    assert.doesNotMatch(src, /this\.sourceState\.error \? this\.sourceState\.error\.replace/);
+    // React: no `this.` prefix — sourceState is a local variable from hook/state
+    assert.match(src, /const errorDetail = sourceState\.degraded \? '' : sourceState\.error\.replace/);
+    assert.doesNotMatch(src, /sourceState\.error \? sourceState\.error\.replace/);
   });
 
   it('keeps client request failures distinct from backend degradation', () => {

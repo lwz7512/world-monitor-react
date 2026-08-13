@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 
-const source = readFileSync(new URL('../src/components/InsightsPanel.ts', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../src/components/panels/InsightsPanel.tsx', import.meta.url), 'utf8');
 
 describe('InsightsPanel server brief sources', () => {
   it('does not fabricate legacy world brief citations from topStories[0]', () => {
@@ -12,7 +12,7 @@ describe('InsightsPanel server brief sources', () => {
     // worldBriefSources, never fabricated from topStories.
     assert.match(
       source,
-      /collectBriefSources\(\s*insights\.worldBriefSources \?\? \[\],\s*Math\.min\(12, Math\.max\(6, insights\.worldBriefSources\?\.length \?\? 6\)\),\s*\)/,
+      /collectBriefSources\(\s*serverInsights\.worldBriefSources \?\? \[\],\s*Math\.min\(12, Math\.max\(6, serverInsights\.worldBriefSources\?\.length \?\? 6\)\),\s*\)/,
       'server-rendered world briefs should cite only explicit worldBriefSources',
     );
     assert.doesNotMatch(

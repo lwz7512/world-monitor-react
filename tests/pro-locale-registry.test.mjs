@@ -59,7 +59,8 @@ function sameList(left, right) {
 
 describe('pro locale registry', () => {
   const appI18n = readFileSync(join(ROOT, 'src', 'services', 'i18n.ts'), 'utf8');
-  const app = readFileSync(join(ROOT, 'src', 'App.ts'), 'utf8');
+  // React migration: App.ts class deleted; ogLocaleMap moved to app-lifecycle.ts (initApp function)
+  const app = readFileSync(join(ROOT, 'src', 'app', 'app-lifecycle.ts'), 'utf8');
   const proI18n = readFileSync(join(ROOT, 'pro-test', 'src', 'i18n.ts'), 'utf8');
 
   const canonicalLanguages = parseStringArrayConst(appI18n, 'SUPPORTED_LANGUAGES');

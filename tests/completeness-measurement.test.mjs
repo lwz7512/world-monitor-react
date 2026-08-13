@@ -186,7 +186,7 @@ describe('coverage-ledger and provenance wiring (source-textual)', () => {
     const seedSrc = readSrc('scripts/seed-insights.mjs');
     assert.match(seedSrc, /storiesConsidered: normalizedItems\.length/);
     assert.match(seedSrc, /selectTopStories\(clusters, 8, selectionStats\)/);
-    const panelSrc = readSrc('src/components/InsightsPanel.ts');
+    const panelSrc = readSrc('src/components/panels/InsightsPanel.tsx');
     assert.match(panelSrc, /components\.insights\.compiledFrom/);
     const en = JSON.parse(readSrc('src/locales/en.json'));
     assert.match(en.components.insights.compiledFrom, /\{\{stories\}\}.*\{\{sources\}\}/);

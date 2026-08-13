@@ -1,11 +1,11 @@
 import '../styles/main.css';
-import { ChinaActivityNowcastPanel } from '@/components/ChinaActivityNowcastPanel';
 import {
   CHINA_ACTIVITY_PROXY_REGISTRY,
   evaluateChinaActivityNowcast,
   type ChinaActivityOfficialObservation,
   type ChinaActivityProxyObservation,
 } from '../../shared/china-activity-nowcast';
+import { renderChinaActivityNowcastView } from '@/components/china-activity-nowcast-view';
 
 declare global {
   interface Window {
@@ -29,10 +29,7 @@ const official: ChinaActivityOfficialObservation = {
   stale: false,
   provenance: { signalId: 'signal:official' },
 };
-const proxy = (
-  seriesId: string,
-  value: number,
-): ChinaActivityProxyObservation => ({
+const proxy = (seriesId: string, value: number): ChinaActivityProxyObservation => ({
   seriesId,
   observationId: `${seriesId}:current`,
   observedAt: '2026-07-25T10:00:00.000Z',
@@ -60,8 +57,11 @@ response.limitations[0] = '<img src=x onerror=alert(1)> unsafe limitation';
 const app = document.getElementById('app');
 if (!app) throw new Error('Missing #app');
 window.__chinaActivityNowcastHarness = { ready: false };
-const panel = new ChinaActivityNowcastPanel();
-app.appendChild(panel.getElement());
-panel.notifyConnected();
-panel.setData(response);
+
+const wrapper = document.createElement('div');
+wrapper.setAttribute('data-panel', 'china-activity-nowcast');
+wrapper.className = 'panel panel-wide china-nowcast-view';
+wrapper.innerHTML = renderChinaActivityNowcastView(response);
+app.appendChild(wrapper);
+
 window.__chinaActivityNowcastHarness.ready = true;

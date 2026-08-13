@@ -54,6 +54,7 @@ const src = (relPath: string): string => readFileSync(resolve(root, relPath), 'u
 const feedsSrc = src('src/config/feeds.ts');
 const panelsSrc = src('src/config/panels.ts');
 const layoutSrc = src('src/app/panel-layout.ts');
+const registrySrc = src('src/app/panel-registry.ts');
 
 // Order matches `mergeCanonicalFeeds([...])` in src/config/feeds.ts, so the replay
 // visits categories in the same order `Object.keys(CANONICAL_FEEDS)` does. No two
@@ -201,17 +202,55 @@ const catalogPanelKeys = unionOfPresets(panelsSrc, PANEL_PRESETS);
 type Registration = { key: string; index: number; viaCreateNewsPanel: boolean };
 
 /**
+ * The news panel IDs registered via REGISTRY_NEWS_PANEL_IDS in panel-layout.ts.
+ * These are in PANEL_REGISTRY but also seed newsCategoryPanelKeys (news-panel role).
+ */
+function parseRegistryNewsPanelIds(): Set<string> {
+  const m = layoutSrc.match(/REGISTRY_NEWS_PANEL_IDS\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  if (!m) return new Set<string>();
+  return new Set([...m[1]!.matchAll(/'([^']+)'/g)].map(r => r[1]!));
+}
+
+/** All keys in PANEL_REGISTRY from panel-registry.ts source (top-level keys). */
+function parsePanelRegistryKeys(): string[] {
+  return topLevelKeys(registrySrc, 'PANEL_REGISTRY');
+}
+
+/**
  * Every panel key panel-layout claims, in source order, with the ones that go
- * through `createNewsPanel` flagged — those record a category→panel-key entry in
- * `ctx.newsCategoryPanelKeys`, which is what `hasNewsPanel` reads.
+ * through `createNewsPanelWithLabel`/REGISTRY_NEWS_PANEL_IDS flagged — those
+ * record a category→panel-key entry in `ctx.newsCategoryPanelKeys`, which is
+ * what `hasNewsPanel` reads.
+ *
+ * The PANEL_REGISTRY loop uses a variable key (`panelId`) rather than string
+ * literals, so it cannot be detected by a literal-string regex. Instead, we
+ * read the keys from `panel-registry.ts` directly and inject them at the loop's
+ * position in panel-layout.ts.
  */
 function panelRegistrations(): Registration[] {
+  const registryNewsIds = parseRegistryNewsPanelIds();
+  const panelRegistryLoopIndex = layoutSrc.indexOf('for (const panelId of Object.keys(PANEL_REGISTRY))');
+
   const out: Registration[] = [];
+  // Explicit literal lazyPanel calls (airline-intel sidecar etc.)
   for (const m of layoutSrc.matchAll(/this\.lazy(?:Panel|DefaultPanel|ImportedPanel)\(\s*'([^']+)'/g)) {
     out.push({ key: m[1]!, index: m.index!, viaCreateNewsPanel: false });
   }
-  for (const m of layoutSrc.matchAll(/this\.createNewsPanel\(\s*'([^']+)'/g)) {
+  // createNewsPanelWithLabel calls (CANONICAL_FEEDS dynamic panels)
+  for (const m of layoutSrc.matchAll(/this\.createNewsPanelWithLabel\(\s*'([^']+)'/g)) {
     out.push({ key: m[1]!, index: m.index!, viaCreateNewsPanel: true });
+  }
+  // PANEL_REGISTRY loop: inject all registry keys at the loop's position.
+  // News panel IDs from REGISTRY_NEWS_PANEL_IDS are flagged viaCreateNewsPanel
+  // because they also seed newsCategoryPanelKeys.
+  if (panelRegistryLoopIndex !== -1) {
+    for (const key of parsePanelRegistryKeys()) {
+      out.push({
+        key,
+        index: panelRegistryLoopIndex,
+        viaCreateNewsPanel: registryNewsIds.has(key),
+      });
+    }
   }
   return out.sort((a, b) => a.index - b.index);
 }
@@ -414,6 +453,10 @@ describe('news panel key reachability (#5871)', () => {
     assert.ok(feedCategories.size > 40, `expected >40 feed categories, got ${feedCategories.size}`);
     assert.ok(catalogPanelKeys.size > 100, `expected >100 catalog panels, got ${catalogPanelKeys.size}`);
     assert.ok(registrations.length > 100, `expected >100 panel registrations, got ${registrations.length}`);
+    // PANEL_REGISTRY keys should be included in registrations via the loop-injection path.
+    assert.ok(parsePanelRegistryKeys().length > 50, `expected >50 PANEL_REGISTRY keys, got ${parsePanelRegistryKeys().length}`);
+    // REGISTRY_NEWS_PANEL_IDS should include the 27 static news panels.
+    assert.ok(parseRegistryNewsPanelIds().size >= 27, `expected >=27 REGISTRY_NEWS_PANEL_IDS, got ${parseRegistryNewsPanelIds().size}`);
     assert.notEqual(loopIndex, -1, 'CANONICAL_FEEDS loop not found in panel-layout.ts');
     // Spot-check both sides of the collision this file exists for, so a parser
     // that silently stopped seeing FINANCE_* fails here rather than vacuously
@@ -504,7 +547,7 @@ describe('news panel key reachability (#5871)', () => {
     // #4382, which is what happened to `live-news`). `LATE_REGISTERED_PANEL_KEYS`
     // is the hand-maintained half; this binds it to the actual source order, so
     // moving a panel below the loop — or dropping a key from the set — fails here.
-    const declaredBlock = layoutSrc.match(/LATE_REGISTERED_PANEL_KEYS\s*=\s*new Set\(\[([^\]]*)\]\)/);
+    const declaredBlock = layoutSrc.match(/LATE_REGISTERED_PANEL_KEYS(?::[^=]*)?\s*=\s*new Set\(\[([^\]]*)\]\)/);
     assert.ok(declaredBlock, 'LATE_REGISTERED_PANEL_KEYS declaration not found in panel-layout.ts');
     const declared = [...declaredBlock[1]!.matchAll(/'([^']+)'/g)].map(m => m[1]!).sort();
     assert.deepEqual(
@@ -545,17 +588,20 @@ describe('news panel key reachability (#5871)', () => {
   });
 
   it('knows every panel-registration primitive panel-layout defines', () => {
-    // `panelRegistrations()` discovers registration ORDER by grepping three method
-    // names. A fourth primitive would be invisible to it, so a feed-category panel
-    // registered through it could move below the pass with LATE_REGISTERED_PANEL_KEYS
+    // `panelRegistrations()` discovers registration ORDER by grepping method names
+    // and reading PANEL_REGISTRY keys. A new untracked primitive could let a
+    // feed-category panel move below the pass with LATE_REGISTERED_PANEL_KEYS
     // never updated — and the drift guard above would stay green while a generic
     // NewsPanel shadowed it (regression #4382, through a seam nothing tracks).
+    // Note: `createNewsPanel` was removed in Phase 7 (news panels migrated to
+    // PANEL_REGISTRY + REGISTRY_NEWS_PANEL_IDS pattern). The PANEL_REGISTRY loop
+    // covers those registrations now.
     const primitives = [...layoutSrc.matchAll(/^\s*private (lazy\w*Panel|createNewsPanel\w*)\b/gm)]
       .map(m => m[1]!)
       .sort();
     assert.deepEqual(
       primitives,
-      ['createNewsPanel', 'createNewsPanelWithLabel', 'lazyDefaultPanel', 'lazyImportedPanel', 'lazyPanel'],
+      ['createNewsPanelWithLabel', 'lazyPanel'],
       'a new panel-registration primitive appeared in panel-layout.ts — teach panelRegistrations() ' +
         'about it (or this file stops seeing part of the registration order it replays)',
     );

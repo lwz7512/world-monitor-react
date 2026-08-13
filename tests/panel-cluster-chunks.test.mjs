@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, '..');
 const componentDir = resolve(repoRoot, 'src/components');
 const startupModulePaths = [
-  'src/App.ts',
+  'src/app/create-app-managers.ts',
   'src/app/country-intel.ts',
   'src/app/data-loader.ts',
   'src/app/event-handlers.ts',

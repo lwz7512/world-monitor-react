@@ -1,6 +1,8 @@
 import '../styles/main.css';
-import { ChinaCorridorPanel } from '../components/ChinaCorridorPanel';
-import { MapContainer } from '../components/MapContainer';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { ChinaCorridorPanelContent } from '@/components/panels/ChinaCorridorPanel';
+import { setRendererCapability } from '@/services/china-corridor-store';
 import {
   CHINA_CORRIDOR_SIGNAL_FAMILIES,
   CHINA_LOGISTICS_CORRIDORS,
@@ -73,57 +75,51 @@ const response: ChinaCorridorControlTowerResponse = {
   })),
 };
 
+// Mock the supply-chain API endpoint so the React component renders with test data
+const originalFetch = (...args: Parameters<typeof fetch>) => fetch(...args);
+window.fetch = async (input, init) => {
+  const url = typeof input === 'string' ? input
+    : input instanceof URL ? input.href
+    : (input as Request).url;
+  if (url.includes('get-china-corridor-control-towers')) {
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  return originalFetch(input as RequestInfo, init);
+};
+
 const app = document.getElementById('app');
 if (!app) throw new Error('Missing #app');
 
 const params = new URLSearchParams(window.location.search);
-const renderer = params.get('renderer') ?? 'deck';
-const map = Object.create(MapContainer.prototype) as MapContainer;
-const mapInternals = map as unknown as Record<string, unknown>;
-Object.assign(mapInternals, {
-  setCenter: () => {},
-  layerLoadingState: new Map(),
-  layerReadyState: new Map(),
-  pendingViewportActions: [],
-  hiddenLayerToggles: new Set(),
-  pendingCenter: null,
-});
-function configureRenderer(kind: string): void {
-  Object.assign(mapInternals, {
-    useDeckGL: kind === 'deck' || kind === 'pending-deck',
-    useGlobe: kind === 'globe',
-    globeMap: kind === 'globe' ? {} : null,
-    deckGLMap: kind === 'deck' ? { setChinaCorridorSelection: () => {} } : null,
-    svgMap: kind === 'svg' ? {} : null,
-  });
-}
-configureRenderer(renderer);
+const rendererParam = params.get('renderer') ?? 'deck';
+
 const harness = {
   selectedCorridorId: null as string | null,
-  rendererSupportsOverlay: renderer === 'pending-deck'
-    ? null
-    : renderer === 'deck',
+  rendererSupportsOverlay: rendererParam === 'pending-deck' ? null : rendererParam === 'deck',
   switchRenderer: (kind: 'deck' | 'globe' | 'svg') => {
-    configureRenderer(kind);
-    (mapInternals.rehydrateActiveMap as () => void).call(map);
+    setRendererCapability(kind === 'deck');
+    harness.rendererSupportsOverlay = kind === 'deck';
   },
   ready: false,
 };
 window.__chinaCorridorPanelHarness = harness;
-const panel = new ChinaCorridorPanel();
-panel.setOnCorridorSelect((corridor) => {
-  harness.selectedCorridorId = corridor.id;
-  const rendererSupportsOverlay = map.setChinaCorridorSelection(corridor);
-  if (rendererSupportsOverlay !== undefined) {
-    harness.rendererSupportsOverlay = rendererSupportsOverlay;
-  }
-  return rendererSupportsOverlay;
+
+// Set initial renderer capability via the store
+if (rendererParam !== 'pending-deck') {
+  setRendererCapability(rendererParam === 'deck');
+}
+
+// Track corridor selection from the React component's custom event
+window.addEventListener('wm:corridor-select', (e) => {
+  harness.selectedCorridorId = (e as CustomEvent<{ corridor: { id: string } }>).detail.corridor.id;
 });
-map.setOnChinaCorridorRendererCapabilityChange((supported) => {
-  harness.rendererSupportsOverlay = supported;
-  panel.setRendererSupportsOverlay(supported);
+
+createRoot(app).render(createElement(ChinaCorridorPanelContent));
+
+// Mark ready after React has had a chance to render with the mocked data
+requestAnimationFrame(() => {
+  harness.ready = true;
 });
-app.appendChild(panel.getElement());
-panel.notifyConnected();
-panel.setData(response);
-harness.ready = true;

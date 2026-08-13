@@ -6,16 +6,19 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const appSrc = readFileSync(resolve(__dirname, '../src/App.ts'), 'utf-8');
+// React migration: App.ts class deleted; openSearch method moved to SearchLauncher in search-launcher.ts
+const appSrc = readFileSync(resolve(__dirname, '../src/app/search-launcher.ts'), 'utf-8');
 
-// App.ts can't be imported under node:test (it pulls in the whole app graph), so
-// extract the private async openSearch() method, strip its types, and run it
+// search-launcher.ts can't be imported under node:test (it pulls in the whole app graph), so
+// extract the async openSearch() method, strip its types, and run it
 // against a mocked `this`. Same source-extraction approach as
 // sentry-beforesend.test.mjs / deckgl-interleaved-race-filter.test.mjs.
+// React migration: method was `private async openSearch(` in App.ts;
+// now it's `async openSearch(` (public) in SearchLauncher class.
 function extractOpenSearch() {
-  const sig = 'private async openSearch(';
+  const sig = 'async openSearch(';
   const start = appSrc.indexOf(sig);
-  assert.ok(start >= 0, 'openSearch must remain a method in App.ts');
+  assert.ok(start >= 0, 'openSearch must remain a method in search-launcher.ts');
   // Match the parameter-list parens first so the inline type literal
   // `{ toggle?: boolean; ... }` in the signature isn't mistaken for the body.
   const parenStart = start + sig.length - 1;
@@ -39,15 +42,16 @@ function extractOpenSearch() {
     }
   }
   assert.ok(end > braceStart, 'openSearch body must have balanced braces');
-  // Drop the `private ` qualifier so it is a valid class method.
-  const methodSrc = appSrc.slice(start, end).replace(/^private\s+/, '');
+  const methodSrc = appSrc.slice(start, end);
   const classSrc = `class __OpenSearchHarness { ${methodSrc} }`;
   const js = ts.transpileModule(classSrc, {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.None },
   }).outputText;
   // Module-level references inside the method are injected as recording doubles.
+  // React migration: new code uses waitForUiReady(this.ctx) instead of this.waitForUiReady();
+  // inject waitForUiReady as a module-level function that reads ctx.isDestroyed.
   // eslint-disable-next-line no-new-func
-  return new Function('showToast', 'overlayHistory', `${js}\nreturn __OpenSearchHarness;`);
+  return new Function('showToast', 'overlayHistory', 'waitForUiReady', `${js}\nreturn __OpenSearchHarness;`);
 }
 
 const toastMessages = [];
@@ -79,7 +83,10 @@ const historyDouble = {
     this.current = null;
   },
 };
-const Harness = extractOpenSearch()((msg) => toastMessages.push(msg), historyDouble);
+// React migration: waitForUiReady is now injected as a module-level function
+// that resolves immediately in the test harness (ctx.isDestroyed not relevant here).
+const waitForUiReadyDouble = async (_ctx) => {};
+const Harness = extractOpenSearch()((msg) => toastMessages.push(msg), historyDouble, waitForUiReadyDouble);
 
 function makeInstance({ failLoad = false } = {}) {
   const inst = new Harness();
@@ -95,13 +102,14 @@ function makeInstance({ failLoad = false } = {}) {
   inst.openSearchEpoch = 0;
   inst.searchToggleDesiredOpen = false;
   inst.searchManager = null;
-  inst.state = { searchModal: null, isDestroyed: false };
-  inst.waitForUiReady = async () => {};
+  // React migration: App.ts used this.state.{searchModal,isDestroyed};
+  // SearchLauncher uses this.ctx.{searchModal,isDestroyed}
+  inst.ctx = { searchModal: null, isDestroyed: false };
   inst.ensureSearchManager = function ensureSearchManager() {
     return gate.then(() => {
       if (failLoad) throw new Error('chunk load failed');
       this.searchManager = manager;
-      this.state.searchModal = modal;
+      this.ctx.searchModal = modal;
       return manager;
     });
   };

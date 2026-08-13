@@ -7,7 +7,16 @@
       "volume": 45643309.60632901,
       "url": "https://polymarket.com/event/how-many-fed-rate-cuts-in-2026",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["rewards-200-4pt5-50", "fed-rates", "economic-policy", "fed", "business", "jerome-powell", "economy", "finance"],
+      "tags": [
+        "rewards-200-4pt5-50",
+        "fed-rates",
+        "economic-policy",
+        "fed",
+        "business",
+        "jerome-powell",
+        "economy",
+        "finance"
+      ],
       "source": "polymarket"
     },
     {
@@ -16,7 +25,12 @@
       "volume": 6908572.301751993,
       "url": "https://polymarket.com/event/ipos-before-2027",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["business", "big-tech", "ipos", "finance"],
+      "tags": [
+        "business",
+        "big-tech",
+        "ipos",
+        "finance"
+      ],
       "source": "polymarket"
     },
     {
@@ -25,7 +39,17 @@
       "volume": 17601283.10192198,
       "url": "https://polymarket.com/event/iran-agrees-to-surrender-enriched-uranium-stockpile-by",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["geopolitics", "trump", "middle-east", "diplomacy-ceasefire", "politics", "trump-iran", "iran", "nuclear", "negotiations"],
+      "tags": [
+        "geopolitics",
+        "trump",
+        "middle-east",
+        "diplomacy-ceasefire",
+        "politics",
+        "trump-iran",
+        "iran",
+        "nuclear",
+        "negotiations"
+      ],
       "source": "polymarket"
     },
     {
@@ -34,7 +58,21 @@
       "volume": 5000707.113035,
       "url": "https://polymarket.com/event/largest-ipo-by-market-cap-in-2026-287",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["climate-science", "ipo", "science", "elon-musk", "openai", "business", "ipos", "sam-altman", "big-tech", "spacex", "space", "finance", "openai-ipo"],
+      "tags": [
+        "climate-science",
+        "ipo",
+        "science",
+        "elon-musk",
+        "openai",
+        "business",
+        "ipos",
+        "sam-altman",
+        "big-tech",
+        "spacex",
+        "space",
+        "finance",
+        "openai-ipo"
+      ],
       "source": "polymarket"
     },
     {
@@ -43,7 +81,14 @@
       "volume": 4338171.918163002,
       "url": "https://polymarket.com/event/brazil-presidential-election-first-round-2nd-place",
       "endDate": "2026-10-04T00:00:00Z",
-      "tags": ["brazil", "politics", "world", "global-elections", "elections", "international-election-props"],
+      "tags": [
+        "brazil",
+        "politics",
+        "world",
+        "global-elections",
+        "elections",
+        "international-election-props"
+      ],
       "source": "polymarket"
     },
     {
@@ -52,7 +97,16 @@
       "volume": 18108105.184368998,
       "url": "https://polymarket.com/event/which-companies-will-be-acquired-before-2027",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["business", "big-tech", "prediction-markets", "finance", "tech", "ai", "acquisitions", "buy"],
+      "tags": [
+        "business",
+        "big-tech",
+        "prediction-markets",
+        "finance",
+        "tech",
+        "ai",
+        "acquisitions",
+        "buy"
+      ],
       "source": "polymarket"
     },
     {
@@ -61,7 +115,18 @@
       "volume": 8901325.340096,
       "url": "https://polymarket.com/event/which-party-will-win-the-house-in-2026",
       "endDate": "2026-11-03T00:00:00Z",
-      "tags": ["parent-for-derivative", "united-states", "us-presidential-election", "politics", "midterms", "world-elections", "elections", "global-elections", "earn-4", "main-election"],
+      "tags": [
+        "parent-for-derivative",
+        "united-states",
+        "us-presidential-election",
+        "politics",
+        "midterms",
+        "world-elections",
+        "elections",
+        "global-elections",
+        "earn-4",
+        "main-election"
+      ],
       "source": "polymarket"
     },
     {
@@ -70,7 +135,12 @@
       "volume": 2769869.6437140005,
       "url": "https://polymarket.com/event/pumpfun-airdop-by",
       "endDate": "2027-01-01T05:00:00Z",
-      "tags": ["airdrops", "crypto", "pre-market", "pumpptfun"],
+      "tags": [
+        "airdrops",
+        "crypto",
+        "pre-market",
+        "pumpptfun"
+      ],
       "source": "polymarket"
     },
     {
@@ -79,7 +149,12 @@
       "volume": 2285897.0355969993,
       "url": "https://polymarket.com/event/will-china-invade-taiwan-by-december-31-2027",
       "endDate": "2027-12-31T00:00:00Z",
-      "tags": ["china", "politics", "world", "geopolitics"],
+      "tags": [
+        "china",
+        "politics",
+        "world",
+        "geopolitics"
+      ],
       "source": "polymarket"
     },
     {
@@ -88,7 +163,11 @@
       "volume": 6597454.164707,
       "url": "https://polymarket.com/event/opensea-fdv-above-one-day-after-launch",
       "endDate": "2027-01-01T05:00:00Z",
-      "tags": ["fdv", "crypto", "pre-market"],
+      "tags": [
+        "fdv",
+        "crypto",
+        "pre-market"
+      ],
       "source": "polymarket"
     },
     {
@@ -97,7 +176,12 @@
       "volume": 1686201.7278130003,
       "url": "https://polymarket.com/event/us-recession-by-end-of-2026",
       "endDate": "2027-01-31T00:00:00Z",
-      "tags": ["business", "economy", "economic-policy", "macro-graph"],
+      "tags": [
+        "business",
+        "economy",
+        "economic-policy",
+        "macro-graph"
+      ],
       "source": "polymarket"
     },
     {
@@ -106,7 +190,16 @@
       "volume": 2107208.933681993,
       "url": "https://polymarket.com/event/iran-coup-attempt-by-june-30",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["geopolitics", "iranian-leadership-regime", "reza-pahlavi", "iran", "israel", "world", "trump", "middle-east"],
+      "tags": [
+        "geopolitics",
+        "iranian-leadership-regime",
+        "reza-pahlavi",
+        "iran",
+        "israel",
+        "world",
+        "trump",
+        "middle-east"
+      ],
       "source": "polymarket"
     },
     {
@@ -115,7 +208,14 @@
       "volume": 709135.2601169988,
       "url": "https://polymarket.com/event/which-ceos-will-be-out-before-2027",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["business", "ai", "big-tech", "tech", "economy", "finance"],
+      "tags": [
+        "business",
+        "ai",
+        "big-tech",
+        "tech",
+        "economy",
+        "finance"
+      ],
       "source": "polymarket"
     },
     {
@@ -124,7 +224,15 @@
       "volume": 3240126.18847,
       "url": "https://polymarket.com/event/next-prime-minister-of-romania-732",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["politics", "main-election", "global-elections", "elections", "romania", "bolojat", "romania-government"],
+      "tags": [
+        "politics",
+        "main-election",
+        "global-elections",
+        "elections",
+        "romania",
+        "bolojat",
+        "romania-government"
+      ],
       "source": "polymarket"
     },
     {
@@ -133,7 +241,12 @@
       "volume": 871734.9197680003,
       "url": "https://polymarket.com/event/will-the-doge-1-lunar-mission-launch-before-2027",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["pop-culture", "spacex", "space", "science"],
+      "tags": [
+        "pop-culture",
+        "spacex",
+        "space",
+        "science"
+      ],
       "source": "polymarket"
     },
     {
@@ -142,7 +255,16 @@
       "volume": 721283.1255290001,
       "url": "https://polymarket.com/event/will-ukraine-agree-to-cede-territory-to-russia-before-2027",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["zelenskyy", "russia", "trump", "geopolitics", "politics", "ukraine", "world", "ukraine-peace-deal"],
+      "tags": [
+        "zelenskyy",
+        "russia",
+        "trump",
+        "geopolitics",
+        "politics",
+        "ukraine",
+        "world",
+        "ukraine-peace-deal"
+      ],
       "source": "polymarket"
     },
     {
@@ -151,7 +273,16 @@
       "volume": 521481.775878,
       "url": "https://polymarket.com/event/ukraine-calls-a-referendum-on-peace-deal-with-russia-by-january-31",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["ukraine", "geopolitics", "trump", "zelensky", "putin", "politics", "russia", "ukraine-peace-deal"],
+      "tags": [
+        "ukraine",
+        "geopolitics",
+        "trump",
+        "zelensky",
+        "putin",
+        "politics",
+        "russia",
+        "ukraine-peace-deal"
+      ],
       "source": "polymarket"
     },
     {
@@ -160,7 +291,17 @@
       "volume": 419486.2576090001,
       "url": "https://polymarket.com/event/natoeu-troops-fighting-in-ukraine-in-2025",
       "endDate": "2026-12-31T12:00:00Z",
-      "tags": ["ukraine", "politics", "geopolitics", "russia", "nato", "eu", "world", "trump-zelenskyy", "security-guarantee"],
+      "tags": [
+        "ukraine",
+        "politics",
+        "geopolitics",
+        "russia",
+        "nato",
+        "eu",
+        "world",
+        "trump-zelenskyy",
+        "security-guarantee"
+      ],
       "source": "polymarket"
     },
     {
@@ -169,7 +310,12 @@
       "volume": 404551.09925800015,
       "url": "https://polymarket.com/event/will-china-invade-taiwan-by-june-30-2027",
       "endDate": "2027-06-30T00:00:00Z",
-      "tags": ["china", "politics", "geopolitics", "taiwan"],
+      "tags": [
+        "china",
+        "politics",
+        "geopolitics",
+        "taiwan"
+      ],
       "source": "polymarket"
     },
     {
@@ -178,7 +324,14 @@
       "volume": 904530.4867650004,
       "url": "https://polymarket.com/event/will-zelenskyy-talk-to-putin-by-november-30-821",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["geopolitics", "ukraine", "putin", "zelenskyy", "politics", "russia"],
+      "tags": [
+        "geopolitics",
+        "ukraine",
+        "putin",
+        "zelenskyy",
+        "politics",
+        "russia"
+      ],
       "source": "polymarket"
     },
     {
@@ -187,7 +340,12 @@
       "volume": 2646716.878486997,
       "url": "https://polymarket.com/event/megaeth-airdrop-by",
       "endDate": "2027-01-01T05:00:00Z",
-      "tags": ["airdrops", "crypto", "megaeth", "pre-market"],
+      "tags": [
+        "airdrops",
+        "crypto",
+        "megaeth",
+        "pre-market"
+      ],
       "source": "polymarket"
     },
     {
@@ -196,7 +354,15 @@
       "volume": 37097100.816747,
       "url": "https://polymarket.com/event/iran-leader-end-of-2026",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["middle-east", "iran", "world", "geopolitics", "politics", "iranian-leadership-regime", "rewards-50-4pt5-100"],
+      "tags": [
+        "middle-east",
+        "iran",
+        "world",
+        "geopolitics",
+        "politics",
+        "iranian-leadership-regime",
+        "rewards-50-4pt5-100"
+      ],
       "source": "polymarket"
     },
     {
@@ -205,7 +371,13 @@
       "volume": 490085.63151499996,
       "url": "https://polymarket.com/event/how-many-spacex-starship-launches-reach-space-in-2026",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["spacex", "space", "science", "elon-musk", "climate-science"],
+      "tags": [
+        "spacex",
+        "space",
+        "science",
+        "elon-musk",
+        "climate-science"
+      ],
       "source": "polymarket"
     },
     {
@@ -214,7 +386,16 @@
       "volume": 3139438.4668219998,
       "url": "https://polymarket.com/event/berlin-state-election-winner",
       "endDate": "2026-09-20T00:00:00Z",
-      "tags": ["world-elections", "world", "german-elections", "main-election", "global-elections", "politics", "elections", "germany"],
+      "tags": [
+        "world-elections",
+        "world",
+        "german-elections",
+        "main-election",
+        "global-elections",
+        "politics",
+        "elections",
+        "germany"
+      ],
       "source": "polymarket"
     },
     {
@@ -223,7 +404,18 @@
       "volume": 21324457.626913022,
       "url": "https://polymarket.com/event/iran-leadership-change-by",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["politics", "iran", "iranian-leadership-regime", "geopolitics", "mojtaba", "ayatollah", "khamenei", "mojtaba-khamenei", "khamenei-out", "mojtaba-out"],
+      "tags": [
+        "politics",
+        "iran",
+        "iranian-leadership-regime",
+        "geopolitics",
+        "mojtaba",
+        "ayatollah",
+        "khamenei",
+        "mojtaba-khamenei",
+        "khamenei-out",
+        "mojtaba-out"
+      ],
       "source": "polymarket"
     },
     {
@@ -232,7 +424,19 @@
       "volume": 243958.46079199994,
       "url": "https://polymarket.com/event/will-anthropic-or-openai-ipo-first",
       "endDate": "2027-12-31T00:00:00Z",
-      "tags": ["sam-altman", "openai", "business", "ipos", "ipo", "finance", "ai", "claude-5", "openai-ipo", "anthropic-ipo", "anthropic"],
+      "tags": [
+        "sam-altman",
+        "openai",
+        "business",
+        "ipos",
+        "ipo",
+        "finance",
+        "ai",
+        "claude-5",
+        "openai-ipo",
+        "anthropic-ipo",
+        "anthropic"
+      ],
       "source": "polymarket"
     },
     {
@@ -241,7 +445,16 @@
       "volume": 178617.20540100013,
       "url": "https://polymarket.com/event/major-meteor-strike-10kt-in-2026",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["climate-science", "spacex", "science", "space", "astroid", "weather", "nasa", "natural-disaster"],
+      "tags": [
+        "climate-science",
+        "spacex",
+        "science",
+        "space",
+        "astroid",
+        "weather",
+        "nasa",
+        "natural-disaster"
+      ],
       "source": "polymarket"
     },
     {
@@ -250,7 +463,16 @@
       "volume": 2666893.5167150036,
       "url": "https://polymarket.com/event/openai-ipo-by",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["openai-ipo", "ipos", "big-tech", "ai", "finance", "business", "ipo", "openai"],
+      "tags": [
+        "openai-ipo",
+        "ipos",
+        "big-tech",
+        "ai",
+        "finance",
+        "business",
+        "ipo",
+        "openai"
+      ],
       "source": "polymarket"
     },
     {
@@ -259,7 +481,17 @@
       "volume": 181328.51955,
       "url": "https://polymarket.com/event/anthropic-ipo-closing-market-cap-higher-strikes",
       "endDate": "2026-12-31T23:55:00Z",
-      "tags": ["finance", "big-tech", "anthropic", "ipo", "claude", "ipos", "ai", "anthropic-ipo", "rewards-200-4pt5-50"],
+      "tags": [
+        "finance",
+        "big-tech",
+        "anthropic",
+        "ipo",
+        "claude",
+        "ipos",
+        "ai",
+        "anthropic-ipo",
+        "rewards-200-4pt5-50"
+      ],
       "source": "polymarket"
     },
     {
@@ -268,7 +500,14 @@
       "volume": 117536.64933199997,
       "url": "https://polymarket.com/event/will-a-chinese-company-have-the-best-ai-model-by-december-31",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["tech", "ai", "china", "airdrops", "big-tech", "ai-rankings"],
+      "tags": [
+        "tech",
+        "ai",
+        "china",
+        "airdrops",
+        "big-tech",
+        "ai-rankings"
+      ],
       "source": "polymarket"
     },
     {
@@ -277,7 +516,12 @@
       "volume": 6008300.814157001,
       "url": "https://polymarket.com/event/predictfun-fdv-above-one-day-after-launch",
       "endDate": "2028-01-01T05:00:00Z",
-      "tags": ["crypto", "fdv", "pre-market", "predictptfun"],
+      "tags": [
+        "crypto",
+        "fdv",
+        "pre-market",
+        "predictptfun"
+      ],
       "source": "polymarket"
     },
     {
@@ -286,7 +530,13 @@
       "volume": 1793110.0578889996,
       "url": "https://polymarket.com/event/what-price-will-hyperliquid-hit-before-2027",
       "endDate": "2027-01-01T05:00:00Z",
-      "tags": ["hyperliquid", "crypto", "yearly", "hit-price", "crypto-prices"],
+      "tags": [
+        "hyperliquid",
+        "crypto",
+        "yearly",
+        "hit-price",
+        "crypto-prices"
+      ],
       "source": "polymarket"
     },
     {
@@ -295,7 +545,13 @@
       "volume": 1364579.1847659997,
       "url": "https://polymarket.com/event/how-many-7pt0-or-above-earthquakes-in-2026",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["weather", "climate-science", "science", "earthquakes", "natural-disasters"],
+      "tags": [
+        "weather",
+        "climate-science",
+        "science",
+        "earthquakes",
+        "natural-disasters"
+      ],
       "source": "polymarket"
     },
     {
@@ -304,7 +560,12 @@
       "volume": 2919068.237889004,
       "url": "https://polymarket.com/event/ai-bubble-burst-by",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["business", "tech", "finance", "big-tech"],
+      "tags": [
+        "business",
+        "tech",
+        "finance",
+        "big-tech"
+      ],
       "source": "polymarket"
     },
     {
@@ -313,7 +574,18 @@
       "volume": 163418.667147,
       "url": "https://polymarket.com/event/ecb-interest-rates-september-2026-20260616222636097",
       "endDate": "2026-09-10T11:59:00Z",
-      "tags": ["ecb", "euro", "europe", "economy", "eurozone", "Global-Rates", "interest-rates", "monetary-policy", "macro-indicators", "european-central-bank"],
+      "tags": [
+        "ecb",
+        "euro",
+        "europe",
+        "economy",
+        "eurozone",
+        "Global-Rates",
+        "interest-rates",
+        "monetary-policy",
+        "macro-indicators",
+        "european-central-bank"
+      ],
       "source": "polymarket"
     },
     {
@@ -322,7 +594,13 @@
       "volume": 30456.509546999998,
       "url": "https://polymarket.com/event/ecb-rate-cut-in-2026",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["Global-Rates", "economy", "europe", "eu", "economic-policy"],
+      "tags": [
+        "Global-Rates",
+        "economy",
+        "europe",
+        "eu",
+        "economic-policy"
+      ],
       "source": "polymarket"
     },
     {
@@ -331,7 +609,20 @@
       "volume": 229823.07414900002,
       "url": "https://polymarket.com/event/natural-disaster-in-2026",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["parlays", "hurricane", "nasa", "astroid", "science", "earthquake", "weather", "climate", "space", "natural-disaster", "natural-disasters", "climate-science"],
+      "tags": [
+        "parlays",
+        "hurricane",
+        "nasa",
+        "astroid",
+        "science",
+        "earthquake",
+        "weather",
+        "climate",
+        "space",
+        "natural-disaster",
+        "natural-disasters",
+        "climate-science"
+      ],
       "source": "polymarket"
     },
     {
@@ -339,8 +630,14 @@
       "yesPrice": 89,
       "volume": 13530.476868,
       "url": "https://polymarket.com/event/reserve-bank-of-india-decision-in-august-20260630194149522",
-      "endDate": "2026-08-05T00:00:00Z",
-      "tags": ["rbi", "economy", "Global-Rates", "interest-rates", "economic-policy"],
+      "endDate": "2027-01-01T00:00:00Z",
+      "tags": [
+        "rbi",
+        "economy",
+        "Global-Rates",
+        "interest-rates",
+        "economic-policy"
+      ],
       "source": "polymarket"
     },
     {
@@ -349,7 +646,16 @@
       "volume": 1590045.474205,
       "url": "https://polymarket.com/event/kraken-ipo-in-2025",
       "endDate": "2027-01-01T05:00:00Z",
-      "tags": ["crypto", "exchange", "finance", "business", "2025-predictions", "featured", "ipos", "crypto-listings"],
+      "tags": [
+        "crypto",
+        "exchange",
+        "finance",
+        "business",
+        "2025-predictions",
+        "featured",
+        "ipos",
+        "crypto-listings"
+      ],
       "source": "polymarket"
     },
     {
@@ -358,7 +664,14 @@
       "volume": 360614.04719799996,
       "url": "https://polymarket.com/event/which-countries-will-trump-make-new-trade-deals-with-before-2027-921",
       "endDate": "2026-12-31T00:00:00Z",
-      "tags": ["tariffs", "trade-war", "politics", "geopolitics", "trump", "world"],
+      "tags": [
+        "tariffs",
+        "trade-war",
+        "politics",
+        "geopolitics",
+        "trump",
+        "world"
+      ],
       "source": "polymarket"
     },
     {
@@ -367,7 +680,14 @@
       "volume": 3314337.6252710004,
       "url": "https://polymarket.com/event/clarity-act-signed-into-law-in-2026",
       "endDate": "2027-01-01T05:00:00Z",
-      "tags": ["crypto", "trump", "politics", "us-law", "crypto-legal", "clarity-act"],
+      "tags": [
+        "crypto",
+        "trump",
+        "politics",
+        "us-law",
+        "crypto-legal",
+        "clarity-act"
+      ],
       "source": "polymarket"
     },
     {

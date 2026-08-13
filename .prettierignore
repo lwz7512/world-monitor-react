@@ -1,0 +1,33 @@
+# Build outputs
+dist/
+.output/
+build/
+
+# Dependencies
+node_modules/
+
+# Generated code — never format
+src/generated/
+shared/
+proto/
+
+# Tauri/Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Lockfiles
+package-lock.json
+pnpm-lock.yaml
+
+# Fixtures and snapshots
+tests/fixtures/
+e2e/snapshots/
+e2e/__screenshots__/
+
+# Vendored / binary assets
+public/
+*.min.js
+*.min.css
+
+# Convex generated
+convex/_generated/

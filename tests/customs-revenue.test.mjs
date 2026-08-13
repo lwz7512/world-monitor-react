@@ -96,14 +96,14 @@ describe('Customs revenue seed', () => {
 });
 
 describe('Customs revenue panel (WTO gate fix)', () => {
-  const panelSrc = readFileSync(join(root, 'src/components/TradePolicyPanel.ts'), 'utf-8');
+  const panelSrc = readFileSync(join(root, 'src/components/panels/TradePolicyPanel.tsx'), 'utf-8');
 
   it('includes revenue in TabId type', () => {
     assert.match(panelSrc, /type TabId\s*=.*'revenue'/);
   });
 
-  it('has updateRevenue method', () => {
-    assert.match(panelSrc, /public updateRevenue\(/);
+  it('has revenue channel subscription (React replaces updateRevenue method)', () => {
+    assert.match(panelSrc, /tradePolicyRevenueChannel/);
   });
 
   it('does NOT have panel-wide early return for missing WTO key', () => {
@@ -115,15 +115,18 @@ describe('Customs revenue panel (WTO gate fix)', () => {
   });
 
   it('defaults to revenue tab when WTO key is missing (comtrade exempt)', () => {
-    assert.match(panelSrc, /if \(!wtoAvailable && this\.activeTab !== 'revenue' && this\.activeTab !== 'comtrade'\)/);
+    // React: uses local state variable activeTab (no this.)
+    assert.match(panelSrc, /!wtoAvailable && activeTab !== 'revenue' && activeTab !== 'comtrade'/);
   });
 
   it('shows localized Treasury source for revenue tab', () => {
-    assert.match(panelSrc, /activeTab === 'revenue' \? t\('components\.tradePolicy\.sourceTreasury'\)/);
+    // React: resolved via effectiveTab (accounts for WTO-gated auto-switch)
+    assert.match(panelSrc, /effectiveTab === 'revenue' \? t\('components\.tradePolicy\.sourceTreasury'\)/);
   });
 
   it('computes FYTD comparison with same month count from prior fiscal year', () => {
-    assert.match(panelSrc, /priorFyAll\.slice\(0, currentFyCount\)/);
+    // React: priorFyMonths.slice(0, currentFyMonths.length) applies the same-count cap
+    assert.match(panelSrc, /\.slice\(0, currentFyMonths\.length\)/);
   });
 });
 

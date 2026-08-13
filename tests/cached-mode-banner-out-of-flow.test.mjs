@@ -18,7 +18,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 const css = readFileSync(join(root, 'src', 'styles', 'main.css'), 'utf-8');
-const appTs = readFileSync(join(root, 'src', 'App.ts'), 'utf-8');
+// React migration: App.ts class deleted; cached-mode-banner creation moved to useConnectivityIndicator.ts
+const appTs = readFileSync(join(root, 'src', 'hooks', 'useConnectivityIndicator.ts'), 'utf-8');
 
 /**
  * First rule body for `selectorRe`. The `\s*\{` anchor means `.cached-mode-banner`

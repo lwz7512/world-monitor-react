@@ -385,28 +385,29 @@ describe('main.js eager diet — export panel is interaction-loaded', () => {
 });
 
 describe('main.js eager diet — signal modal is interaction-loaded', () => {
-  const appSource = readFileSync(resolve(repoRoot, 'src/App.ts'), 'utf8');
+  // React migration: App.ts class deleted; SignalModal lazy-load moved to SearchLauncher in search-launcher.ts
+  const appSource = readFileSync(resolve(repoRoot, 'src/app/search-launcher.ts'), 'utf8');
   const appWithoutComments = stripComments(appSource);
 
   it('does not statically import SignalModal into App boot', () => {
     assert.ok(
       !valueImportSpecifiers(appWithoutComments).includes(SIGNAL_MODAL_DEFERRED_IMPORT),
-      'App should not statically import SignalModal; first show should lazy-load it',
+      'SearchLauncher should not statically import SignalModal; first show should lazy-load it',
     );
   });
 
   it('keeps SignalModal behind a dynamic import and resets failed loads', () => {
     assert.ok(
       appWithoutComments.includes("this.signalModalLoad = import('@/components/SignalModal')"),
-      'App should lazy-load SignalModal with import("@/components/SignalModal")',
+      'SearchLauncher should lazy-load SignalModal with import("@/components/SignalModal")',
     );
     assert.ok(
       appWithoutComments.includes('signalModalLoad = null;'),
-      'App should reset signalModalLoad on chunk-load failure so later notifications can retry',
+      'SearchLauncher should reset signalModalLoad on chunk-load failure so later notifications can retry',
     );
     assert.ok(
       !appWithoutComments.includes('this.state.signalModal = new SignalModal();'),
-      'App should not construct SignalModal during boot',
+      'SearchLauncher should not construct SignalModal during boot',
     );
   });
 });
@@ -445,14 +446,15 @@ describe('main.js eager diet — structurally pinned service tail is lazy-loaded
   });
 
   it('keeps the desktop findings badge and cross-module alerts behind dynamic imports', () => {
-    const appSource = readFileSync(resolve(repoRoot, 'src/App.ts'), 'utf8');
+    // React migration: App.ts class deleted; IntelligenceGapBadge lazy-load moved to useFindingsBadge.ts hook
+    const appSource = readFileSync(resolve(repoRoot, 'src/hooks/useFindingsBadge.ts'), 'utf8');
     assert.ok(
       !valueImportSpecifiers(stripComments(appSource)).includes(INTELLIGENCE_GAP_BADGE_DEFERRED_IMPORT),
-      'App must not statically import the findings badge into the main entry',
+      'useFindingsBadge must not statically import the findings badge into the main entry',
     );
     assert.ok(
       dynamicImportSpecifiers(appSource).includes(INTELLIGENCE_GAP_BADGE_DEFERRED_IMPORT),
-      'App should lazy-load the findings badge on desktop',
+      'useFindingsBadge should lazy-load the findings badge on desktop',
     );
 
     const badgeSource = readFileSync(resolve(repoRoot, 'src/components/IntelligenceGapBadge.ts'), 'utf8');

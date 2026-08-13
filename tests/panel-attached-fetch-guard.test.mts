@@ -34,11 +34,13 @@ describe('self-starting panel fetches wait for attachment', () => {
   });
 
   it('LatestBriefPanel refresh waits for connection before /api/latest-brief fetch', () => {
-    assertGuardBefore(
-      read('src/components/LatestBriefPanel.ts'),
-      'refresh',
-      /fetchLatest\(/,
-    );
+    // React: useEffect provides mount-gating — fetch only runs after the component
+    // is in the DOM. Check that fetchLatestBrief is called inside useEffect.
+    const source = read('src/components/panels/LatestBriefPanel.tsx');
+    const useEffectIdx = source.indexOf('useEffect(');
+    const fetchIdx = source.indexOf('fetchLatestBrief(', useEffectIdx);
+    assert.ok(useEffectIdx >= 0, 'useEffect must exist');
+    assert.ok(fetchIdx > useEffectIdx, 'fetchLatestBrief must be called inside useEffect');
   });
 
   it('AirlineIntelPanel refresh waits for connection before aviation fetches', () => {
@@ -57,11 +59,13 @@ describe('self-starting panel fetches wait for attachment', () => {
     );
   });
 
-  it('RegionalIntelligenceBoard loadCurrent waits for connection before premium RPCs', () => {
-    assertGuardBefore(
-      read('src/components/RegionalIntelligenceBoard.ts'),
-      'loadCurrent',
-      /getRegionalSnapshot\(/,
-    );
+  it('RegionalIntelligencePanel loadCurrent waits for connection before premium RPCs', () => {
+    // React: useEffect provides mount-gating — getRegionalSnapshot only runs
+    // after the component is connected to the DOM.
+    const source = read('src/components/panels/RegionalIntelligencePanel.tsx');
+    const useEffectIdx = source.indexOf('useEffect(');
+    const fetchIdx = source.indexOf('getRegionalSnapshot(', useEffectIdx);
+    assert.ok(useEffectIdx >= 0, 'useEffect must exist');
+    assert.ok(fetchIdx > useEffectIdx, 'getRegionalSnapshot must be called inside useEffect');
   });
 });

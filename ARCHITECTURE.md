@@ -15,11 +15,11 @@ World Monitor is a real-time global intelligence dashboard built as a TypeScript
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Browser / Desktop                        │
-│  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌──────────────┐  │
-│  │ DeckGLMap│  │ GlobeMap │  │  Panels    │  │  Workers     │  │
-│  │(deck.gl) │  │(globe.gl)│  │(Panel base)│  │(ML, analysis)│  │
-│  └────┬─────┘  └────┬─────┘  └─────┬──────┘  └──────────────┘  │
-│       └──────────────┴──────────────┘                           │
+│  ┌──────────┐  ┌──────────┐  ┌────────────┐  ┌──────────────┐   │
+│  │ DeckGLMap│  │ GlobeMap │  │  Panels    │  │  Workers     │   │
+│  │(deck.gl) │  │(globe.gl)│  │(Panel base)│  │(ML, analysis)│   │
+│  └────┬─────┘  └────┬─────┘  └─────┬──────┘  └──────────────┘   │
+│       └─────────────┴──────────────┘                            │
 │                         │ fetch /api/*                          │
 └─────────────────────────┼───────────────────────────────────────┘
                           │
@@ -77,33 +77,111 @@ World Monitor is a real-time global intelligence dashboard built as a TypeScript
 
 ### Entry and Initialization
 
-`src/main.ts` initializes Sentry error tracking, Vercel analytics, dynamic meta tags, runtime fetch patches (desktop sidecar redirection), theme application, and creates the `App` instance.
+`src/main.tsx` initializes Sentry error tracking, Vercel analytics, dynamic meta tags, runtime fetch patches (desktop sidecar redirection), and theme application, then mounts the React tree via `ReactDOM.createRoot(el).render(<AppRoot />)`.
 
-`App.init()` runs in 8 phases:
+`AppRoot` is the sole top-level orchestrator. On first render it synchronously calls `createAppManagers('app')` (held in a `useRef` to prevent re-runs) then fires a single `useEffect([], [])` that calls `initApp(managers)`:
 
-1. **Storage + i18n**: IndexedDB, language detection, locale loading
-2. **ML Worker**: ONNX model prep (embeddings, sentiment, summarization)
-3. **Sidecar**: Wait for desktop sidecar readiness (desktop only)
-4. **Bootstrap**: Two-tier concurrent hydration from `/api/bootstrap` (fast 3s + slow 5s timeouts)
-5. **Layout**: PanelLayoutManager renders map and panels
-6. **UI**: SignalModal, IntelligenceGapBadge, BreakingNewsBanner, correlation engine
-7. **Data**: Parallel `loadAllData()` + viewport-conditional `primeVisiblePanelData()`
+1. **i18n + DB**: IndexedDB init, language detection, locale loading, font deferral
+2. **Sidecar**: Wait for desktop sidecar readiness (desktop only)
+3. **Bootstrap**: Two-tier concurrent hydration from `/api/bootstrap` (fast 3s + slow 5s timeouts)
+4. **Panel layout**: `PanelLayoutManager.init()` mounts the map and inserts panel shells into `#panelsGrid`
+5. **Auth + UI**: Auth state, breaking-news banner, correlation engine, WebMCP tool registration
+6. **Data**: Parallel `loadAllData()` + viewport-conditional `primeVisiblePanelData()`
+7. **Post-LCP intelligence**: Country geometry preload, intelligence enrichment
 8. **Refresh**: Variant-specific polling intervals via `startSmartPollLoop()`
 
-### Component Model
+The `useEffect` cleanup calls `destroyApp(managers)`, which tears down all manager instances and removes event listeners.
 
-All panels extend the `Panel` base class (107 classes across `src/components`). Panels render via `setContent(html)` (debounced 150ms) and use event delegation on a stable `this.content` element. Panels support resizable row/col spans persisted to localStorage.
+```
+src/main.tsx
+  └─ createRoot(<AppRoot />)
+       ├─ createAppManagers('app')     ← was App constructor (src/app/create-app-managers.ts)
+       ├─ initApp(managers)            ← was App.init()     (src/app/app-lifecycle.ts)
+       ├─ destroyApp(managers)         ← was App.destroy()  (src/app/app-lifecycle.ts)
+       └─ <AppContextProvider>
+            ├─ <AppSetupHooks />       ← 43 event-setup hooks (src/hooks/)
+            ├─ <PanelLayout />         ← React portal bridge (src/app/PanelLayout.tsx)
+            └─ <MissionPresetControl />
+```
+
+### Panel Model
+
+The frontend has two parallel panel layers that coexist via `PanelLayoutManager`:
+
+**React panels (110 components)** — the primary model. Live in `src/components/panels/`. Each is a function component using `usePanelData` for self-fetching and `PanelShell` for the standard header/resize/close scaffold. Registered in `src/app/panel-registry.ts` as `{ load: () => import(...), name: string }` entries. `PanelLayoutManager.createPanels()` iterates `PANEL_REGISTRY` and calls `this.lazyPanel(id, async () => new ReactFullPanel())` for each entry. `ReactFullPanel` (`src/components/ReactPanelBridge.ts`) inserts a `display:contents` div into `#panelsGrid`; `PanelLayout.tsx` uses `createPortal` to render the React component tree into it.
+
+**Class-based panels (intentionally kept)** — four remaining class panels extend the `Panel` base class:
+
+| Class | Reason kept |
+|-------|-------------|
+| `NewsPanel.ts` | CANONICAL_FEEDS dynamic panels (variant-specific categories with computed keys) |
+| `CustomWidgetPanel.ts` | Runtime spec — dynamic ID, user-defined content |
+| `McpDataPanel.ts` | Runtime spec — dynamic ID, MCP-sourced content |
+| `StatusPanel.ts` | API health singleton, not a user panel |
+
+These are created imperatively inside `PanelLayoutManager`, not via PANEL_REGISTRY.
+
+### Controller-Class Pattern
+
+Panels with complex imperative lifecycle (YouTube IFrame API, HLS, IntersectionObserver, idle timers) use a sibling controller file instead of hooks with `exhaustive-deps` suppression:
+
+```
+LiveNewsPanel.tsx        ← thin React shell (160 lines); JSX + state bridge only
+LiveNewsController.ts    ← all player logic as class methods (1,419 lines)
+
+LiveWebcamsPanel.tsx     ← thin React shell (168 lines)
+LiveWebcamsController.ts ← iframe/observer/idle logic (1,022 lines)
+```
+
+Pattern: controller held in `ctrlRef = useRef<Controller | null>(null)`, lazy-initialized in the render body, single `useEffect([], [])` calls `mount()`/`destroy()`. A state-bridge interface (`LiveNewsControllerState`, `LiveWebcamsControllerState`) carries `setState` callbacks and DOM ref getters so the controller can drive React state without depending on hooks.
+
+### News Panel Data Bridge
+
+Static news-category panels (27 in PANEL_REGISTRY) and CANONICAL_FEEDS dynamic panels (created as `NewsPanel.ts` class instances) share a single data path via `src/services/news-panel-registry.ts`:
+
+```
+news-loader.ts  →  getNewsStore(categoryKey)  →  NewsPanelStore
+                                                    ↑
+NewsPanelById.tsx  (React)  ──────  registerNewsStore()
+NewsPanel.ts       (class)  ──────  registerNewsStore()  (in constructor)
+```
+
+`NewsPanelStore` (in `NewsPanelContent.tsx`) exposes `renderNews()`, `renderFilteredEmpty()`, `showError()`, `setDeviation()`, and all other NewsPanel methods, allowing `news-loader.ts` to call the same API regardless of whether the panel is a React component or a class instance.
+
+### Event-Setup Hooks
+
+`AppSetupHooks` (rendered inside `AppContextProvider` in `AppRoot.tsx`) calls 43 focused hooks that replaced `EventHandlerManager`. Each hook owns a specific concern and wires its listeners/intervals in a `useEffect`:
+
+- **Map**: `useMapControls`, `useMapLayerHandlers`, `useMapResizeSync`
+- **URL**: `useUrlStateSync`, `useDeepLinks`
+- **Auth**: `useAuthLifecycle`, `useAuthWidget`, `useCloudPrefsSync`
+- **UI state**: `useTvMode`, `usePlaybackControl`, `useIdleDetection`, `useVariantFullscreen`
+- **Panels**: `usePanelEventBridge`, `usePanelCloseUndo`, `useWidgetCreator`, `useWidgetMcpHandlers`
+- **Data**: `useRefreshIntervals`, `useViewportDataPrime`, `useFindingsBadge`
+- **Desktop**: `useDesktopUpdater`, `useDesktopExternalLinks`
 
 ### Dual Map System
 
 - **DeckGLMap**: WebGL rendering via deck.gl + maplibre-gl. Supports ScatterplotLayer, GeoJsonLayer, PathLayer, IconLayer, PolygonLayer, ArcLayer, HeatmapLayer, H3HexagonLayer. PMTiles protocol for self-hosted basemap tiles. Supercluster for marker clustering.
 - **GlobeMap**: 3D interactive globe via globe.gl. Single merged `htmlElementsData` array with `_kind` discriminator. Earth texture, atmosphere shader, auto-rotate after idle.
 
+The map is mounted imperatively by `PanelLayoutManager.createPanels()` into `#mapReactMount` after the panel registration block (U3 #4459: map chunk fetch starts at top of `createPanels()` but awaits after all `lazyPanel()` calls so panel registration runs concurrently with the chunk download). `MapContainerReact.tsx` wraps the class-based `MapContainer` instance with a React component interface.
+
 Layer definitions live in `src/config/map-layer-definitions.ts`, each specifying renderer support (flat/globe), premium status, variant filtering, and i18n keys.
 
 ### State Management
 
-No external state library. `AppContext` is a central mutable object holding: map references, panel instances, panel/layer settings, all cached data (news, markets, predictions, clusters, intelligence caches), in-flight request tracking, and UI component references. URL state syncs bidirectionally via `src/utils/urlState.ts` (debounced 250ms).
+No external state library. `AppContext` (React context in `src/context/AppContext.tsx`) holds: map references, panel instances, panel/layer settings, all cached data (news, markets, predictions, clusters, intelligence caches), in-flight request tracking, and UI component references. The raw `AppContext` interface is defined in `src/app/app-context.ts` and remains a mutable object — React context provides access to it, not reactivity over it. URL state syncs bidirectionally via `src/utils/urlState.ts` (debounced 250ms).
+
+### Dependency Direction
+
+Enforced by `npm run lint:boundaries`:
+
+```
+types → config → services → components → app → AppRoot.tsx
+```
+
+`types/` has zero internal imports. Each layer imports only from layers to its left. `src/hooks/` sits between `components` and `app`.
 
 ### Web Workers
 
@@ -115,7 +193,7 @@ No external state library. `AppContext` is a central mutable object holding: map
 
 Detected by hostname (`tech.worldmonitor.app` → tech, `finance.worldmonitor.app` → finance, etc.) or localStorage on desktop. Controls: default panels, map layers, refresh intervals, theme, UI text. Variant change resets all settings to defaults.
 
-**Source files**: `src/main.ts`, `src/App.ts`, `src/app/`, `src/components/Panel.ts`, `src/components/DeckGLMap.ts`, `src/components/GlobeMap.ts`, `src/config/variant.ts`, `src/workers/`
+**Source files**: `src/main.tsx`, `src/AppRoot.tsx`, `src/app/create-app-managers.ts`, `src/app/app-lifecycle.ts`, `src/app/panel-registry.ts`, `src/app/panel-layout.ts`, `src/app/PanelLayout.tsx`, `src/components/panels/`, `src/components/Panel.ts`, `src/components/ReactPanelBridge.ts`, `src/services/news-panel-registry.ts`, `src/hooks/`, `src/context/AppContext.tsx`, `src/components/DeckGLMap.ts`, `src/components/GlobeMap.ts`, `src/config/variant.ts`, `src/workers/`
 
 ---
 
@@ -415,17 +493,34 @@ Runs before every `git push`:
 │   ├── router.ts           Route matching
 │   └── worldmonitor/       Domain handlers (mirrors proto structure)
 ├── shared/                 Cross-platform JSON configs (markets, RSS domains)
-├── src/                    Browser SPA (TypeScript)
-│   ├── app/                App orchestration managers
+├── src/                    Browser SPA (TypeScript + React)
+│   ├── app/                App orchestration (lifecycle, managers, panel registry, loaders)
+│   │   ├── create-app-managers.ts   ← builds AppManagers (was App constructor)
+│   │   ├── app-lifecycle.ts         ← initApp() / destroyApp() (was App.init/destroy)
+│   │   ├── panel-registry.ts        ← PANEL_REGISTRY: 136 React panel entries
+│   │   ├── panel-layout.ts          ← PanelLayoutManager (DOM shells + map mount)
+│   │   ├── PanelLayout.tsx          ← React portal bridge (createPortal into shells)
+│   │   ├── news-panel-utils.ts      ← shared news utilities (computeEventRisk)
+│   │   └── {data,news,markets,intelligence}-loader.ts  ← domain data loaders
 │   ├── bootstrap/          Startup/recovery (chunk reload, deferred Sentry, SW update)
-│   ├── components/         Panel subclasses + map components
+│   ├── components/         Map components, class panels, React infrastructure
+│   │   ├── panels/         110 React panel function components
+│   │   ├── Panel.ts        Base class (CustomWidget / MCP / Status / dynamic NewsPanel)
+│   │   ├── ReactPanelBridge.ts   ReactFullPanel: display:contents mount target
+│   │   ├── PanelShell.tsx  Standard panel header/resize/close scaffold
+│   │   ├── NewsPanel.ts    Class panel for CANONICAL_FEEDS dynamic categories
+│   │   ├── DeckGLMap.ts    Flat WebGL map (deck.gl + maplibre-gl + PMTiles)
+│   │   └── GlobeMap.ts     3D globe (globe.gl)
 │   ├── config/             Variant, panel, layer, market configurations
+│   ├── context/            React context (AppContext.tsx)
 │   ├── data/               Static JSON datasets (conservation, renewable, happiness)
 │   ├── e2e/                Map test harnesses (consumed by Playwright specs)
 │   ├── embed/              Embeddable widget loader
 │   ├── generated/          Proto-generated client/server stubs (DO NOT EDIT)
+│   ├── hooks/              43 event-setup hooks (useMapControls, useAuthLifecycle, …)
 │   ├── locales/            i18n translation files
 │   ├── services/           Business logic organized by domain
+│   │   └── news-panel-registry.ts  ← panelId → NewsPanelStore bridge
 │   ├── shared/             Cross-cutting helpers (premium paths, registries, staleness)
 │   ├── shims/              Runtime shims (child-process for sidecar)
 │   ├── styles/             Global CSS (layers, themes, panel styles)

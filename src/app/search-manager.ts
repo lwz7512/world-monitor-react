@@ -4,7 +4,7 @@ import type { NewsItem, MapLayers, MilitaryBase, MilitaryFlight } from '@/types'
 import type { MapView, TimeRange } from '@/components/MapContainer';
 import type { Command } from '@/config/commands';
 import { SearchModal } from '@/components/SearchModal';
-import type { CIIPanel } from '@/components/CIIPanel';
+import { getCiiScores } from '@/services/cii-store';
 import { SITE_VARIANT, STORAGE_KEYS, ALL_PANELS, getEffectivePanelConfig, isPanelEntitled } from '@/config';
 import { getAllowedLayerKeys, isLayerExecutable } from '@/config/map-layer-definitions';
 import type { MapRenderer } from '@/config/map-layer-definitions';
@@ -26,6 +26,7 @@ import { STARTUP_ECOSYSTEMS } from '@/config/startup-ecosystems';
 import { TECH_HQS, ACCELERATORS } from '@/config/tech-geo';
 import { STOCK_EXCHANGES, FINANCIAL_CENTERS, CENTRAL_BANKS, COMMODITY_HUBS } from '@/config/finance-geo';
 import { trackSearchResultSelected, trackCountrySelected } from '@/services/analytics';
+import { getAllNewsStores } from '@/services/news-panel-registry';
 import { t } from '@/services/i18n';
 import { saveToStorage, setTheme } from '@/utils';
 import { CountryIntelManager } from '@/app/country-intel';
@@ -279,8 +280,8 @@ export class SearchManager implements AppModule {
         const item = result.data as NewsItem;
         // Find which panel contains this item (may not always be 'politics')
         let targetPanelId = 'politics';
-        let targetPanel = this.ctx.newsPanels['politics'] ?? null;
-        for (const [panelId, panel] of Object.entries(this.ctx.newsPanels)) {
+        let targetPanel = getAllNewsStores().get('politics') ?? null;
+        for (const [panelId, panel] of getAllNewsStores()) {
           if (panel.hasNewsItem(item.link)) {
             targetPanelId = panelId;
             targetPanel = panel;
@@ -782,7 +783,7 @@ export class SearchManager implements AppModule {
 
   private buildCountrySearchItems(): { id: string; title: string; subtitle: string; data: { code: string; name: string } }[] {
     const cachedScores = getCachedCountryScores();
-    const panelScores = (this.ctx.panels.cii as CIIPanel | undefined)?.getScores() ?? [];
+    const panelScores = getCiiScores();
     const scores = cachedScores.length > 0
       ? cachedScores
       : panelScores;

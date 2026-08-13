@@ -1,9 +1,10 @@
 /**
  * Wiring lock for the Business Pro seat-invite accept flow (#4634/#4635) in
- * src/App.ts. App.ts is a DOM/bootstrap module that can't be imported under
- * `tsx --test` (no jsdom, real Convex client/auth side effects), so — per the
- * repo's established pattern (see tests/billing-state-wiring.test.mts) — this
- * locks the integration with source-text assertions instead of executing it.
+ * src/hooks/useAuthLifecycle.ts. useAuthLifecycle is a DOM/auth module that
+ * can't be imported under `tsx --test` (no jsdom, real Convex client/auth side
+ * effects), so — per the repo's established pattern (see
+ * tests/billing-state-wiring.test.mts) — this locks the integration with
+ * source-text assertions instead of executing it.
  */
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -13,14 +14,14 @@ const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 
 
 describe('App.ts accept-business-invite URL flow wiring', () => {
   it('reads both URL params and only proceeds when both are present', async () => {
-    const src = await read('src/App.ts');
+    const src = await read('src/hooks/useAuthLifecycle.ts');
     assert.match(src, /new URLSearchParams\(window\.location\.search\)\.get\('accept-business-invite'\)/);
     assert.match(src, /new URLSearchParams\(window\.location\.search\)\.get\('token'\)/);
     assert.match(src, /if \(businessInviteGrantId && businessInviteToken\) \{/);
   });
 
   it('waits for Convex auth before calling acceptBusinessInvite, and bails without side effects if it times out', async () => {
-    const src = await read('src/App.ts');
+    const src = await read('src/hooks/useAuthLifecycle.ts');
     assert.match(src, /const ready = await waitForConvexAuthForUser\(userId, 10_000\);/);
     assert.match(
       src,
@@ -30,7 +31,7 @@ describe('App.ts accept-business-invite URL flow wiring', () => {
   });
 
   it('binds the mutation settlement and success toast to the initiating account', async () => {
-    const src = await read('src/App.ts');
+    const src = await read('src/hooks/useAuthLifecycle.ts');
     assert.match(
       src,
       /await settleAccountOperation\(\s*userId,\s*'accepting the Business Pro seat invite',\s*\(\) => client\.mutation\(/,
@@ -48,13 +49,13 @@ describe('App.ts accept-business-invite URL flow wiring', () => {
   });
 
   it('bails silently when the Convex client/api failed to load', async () => {
-    const src = await read('src/App.ts');
+    const src = await read('src/hooks/useAuthLifecycle.ts');
     assert.match(src, /const \[client, api\] = await Promise\.all\(\[getConvexClient\(\), getConvexApi\(\)\]\);/);
     assert.match(src, /if \(!client \|\| !api\) return;/);
   });
 
   it('maps every known acceptBusinessInvite rejection kind to a distinct user-facing toast', async () => {
-    const src = await read('src/App.ts');
+    const src = await read('src/hooks/useAuthLifecycle.ts');
     // One assertion per ConvexError kind the backend mutation can throw
     // (convex/payments/businessSeats.ts:acceptBusinessInvite) — a missing
     // branch here means that failure mode surfaces as the generic fallback
@@ -84,7 +85,7 @@ describe('App.ts accept-business-invite URL flow wiring', () => {
   });
 
   it('always clears the invite URL params in a finally block once the try/catch runs, so a page refresh does not retry', async () => {
-    const src = await read('src/App.ts');
+    const src = await read('src/hooks/useAuthLifecycle.ts');
     assert.match(
       src,
       /\} finally \{\s*\n\s*\/\/ Clear the invite params from the URL so a refresh does not retry\.\s*\n\s*const url = new URL\(window\.location\.href\);\s*\n\s*url\.searchParams\.delete\('accept-business-invite'\);\s*\n\s*url\.searchParams\.delete\('token'\);\s*\n\s*window\.history\.replaceState\(\{\}, '', url\.toString\(\)\);\s*\n\s*\}/,
@@ -93,7 +94,7 @@ describe('App.ts accept-business-invite URL flow wiring', () => {
   });
 
   it('grantId is typed at the Convex-client boundary rather than cast through `api as any`', async () => {
-    const src = await read('src/App.ts');
+    const src = await read('src/hooks/useAuthLifecycle.ts');
     assert.match(src, /grantId: businessInviteGrantId as Id<'businessProGrants'>/);
     assert.doesNotMatch(
       src,

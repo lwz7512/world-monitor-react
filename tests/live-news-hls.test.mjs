@@ -9,29 +9,33 @@ const root = resolve(__dirname, '..');
 
 const readSrc = (relPath) => readFileSync(resolve(root, relPath), 'utf-8');
 
-const liveNewsSrc = readSrc('src/components/LiveNewsPanel.ts');
+// Channel data (arrays, HLS maps) now lives in the service module
+const liveChannelsSvc = readSrc('src/services/live-news-channels.ts');
+// Implementation patterns (player logic) now live in the controller module
+const liveNewsCtrl = readSrc('src/components/panels/LiveNewsController.ts');
+// The panel component (thin React shell) — kept for panel-level checks
+const liveNewsSrc = liveNewsCtrl;
 const liveNewsSvc = readSrc('src/services/live-news.ts');
 const youtubeApi = readSrc('api/youtube/live.js');
 const sidecarSrc = readSrc('src-tauri/sidecar/local-api-server.mjs');
 const vercelConfig = JSON.parse(readSrc('vercel.json'));
 const tauriConfig = JSON.parse(readSrc('src-tauri/tauri.conf.json'));
 
-const globalCsp = vercelConfig.headers
-  .find((entry) => entry.source.includes('?!docs|embed'))
-  ?.headers
-  ?.find((header) => header.key === 'Content-Security-Policy')
-  ?.value ?? '';
+const globalCsp =
+  vercelConfig.headers
+    .find((entry) => entry.source.includes('?!docs|embed'))
+    ?.headers?.find((header) => header.key === 'Content-Security-Policy')?.value ?? '';
 const tauriCsp = tauriConfig.app.security.csp;
 const getCspDirective = (csp, directive) =>
   csp.match(new RegExp(`${directive}\\s+([^;]+)`))?.[1]?.split(/\s+/) ?? [];
 
-// ── Extract channel IDs and DIRECT_HLS_MAP keys from source ──
+// ── Extract channel IDs and DIRECT_HLS_MAP keys from the channel service ──
 
 const extractArrayIds = (arrayName) => {
   const pattern = new RegExp(`const ${arrayName}[^=]*=[^\\[]*\\[([\\s\\S]*?)\\];`);
-  const match = liveNewsSrc.match(pattern);
+  const match = liveChannelsSvc.match(pattern);
   if (!match) return [];
-  return [...match[1].matchAll(/id:\s*'([^']+)'/g)].map(m => m[1]);
+  return [...match[1].matchAll(/id:\s*'([^']+)'/g)].map((m) => m[1]);
 };
 
 const fullIds = extractArrayIds('FULL_LIVE_CHANNELS');
@@ -39,12 +43,16 @@ const techIds = extractArrayIds('TECH_LIVE_CHANNELS');
 const optionalIds = extractArrayIds('OPTIONAL_LIVE_CHANNELS');
 const allChannelIds = new Set([...fullIds, ...techIds, ...optionalIds]);
 
-const hlsMapMatch = liveNewsSrc.match(/const DIRECT_HLS_MAP[^{]*\{([\s\S]*?)\};/);
+const hlsMapMatch = liveChannelsSvc.match(/const DIRECT_HLS_MAP[^{]*\{([\s\S]*?)\};/);
+// Keys may be unquoted (e.g. `sky: '...'`) or quoted (e.g. `'abc-news': '...'`)
 const hlsMapEntries = hlsMapMatch
-  ? [...hlsMapMatch[1].matchAll(/'([^']+)':\s*'([^']+)'/g)].map(m => ({ id: m[1], url: m[2] }))
+  ? [...hlsMapMatch[1].matchAll(/(?:'([\w-]+)'|([\w]+)):\s*'([^']+)'/g)].map((m) => ({
+      id: m[1] || m[2],
+      url: m[3],
+    }))
   : [];
 
-const hlsMapIds = new Set(hlsMapEntries.map(e => e.id));
+const hlsMapIds = new Set(hlsMapEntries.map((e) => e.id));
 
 // ── 1. DIRECT_HLS_MAP integrity ──
 
@@ -61,13 +69,15 @@ describe('DIRECT_HLS_MAP integrity', () => {
 
   it('every mapped channel has a fallbackVideoId or hlsUrl', () => {
     for (const { id } of hlsMapEntries) {
-      const channelDef = liveNewsSrc.match(new RegExp(`id:\\s*'${id}'[^}]*}`));
+      const channelDef = liveChannelsSvc.match(new RegExp(`id:\\s*'${id}'[^}]*}`));
       assert.ok(channelDef, `Channel '${id}' definition not found`);
       const hasFallback = /fallbackVideoId:\s*'[^']+'/.test(channelDef[0]);
       const hasHlsUrl = /hlsUrl:\s*'[^']+'/.test(channelDef[0]);
       const hasHandle = /handle:\s*'[^']+'/.test(channelDef[0]);
-      assert.ok(hasFallback || hasHlsUrl || hasHandle,
-        `Channel '${id}' in DIRECT_HLS_MAP lacks fallbackVideoId, hlsUrl, and handle`);
+      assert.ok(
+        hasFallback || hasHlsUrl || hasHandle,
+        `Channel '${id}' in DIRECT_HLS_MAP lacks fallbackVideoId, hlsUrl, and handle`,
+      );
     }
   });
 
@@ -84,7 +94,7 @@ describe('DIRECT_HLS_MAP integrity', () => {
   });
 
   it('no duplicate channel IDs in the map', () => {
-    const ids = hlsMapEntries.map(e => e.id);
+    const ids = hlsMapEntries.map((e) => e.id);
     assert.equal(ids.length, new Set(ids).size, 'Duplicate IDs in DIRECT_HLS_MAP');
   });
 });
@@ -94,10 +104,13 @@ describe('DIRECT_HLS_MAP integrity', () => {
 describe('channel data integrity', () => {
   it('all FULL_LIVE_CHANNELS have fallbackVideoId', () => {
     for (const id of fullIds) {
-      const match = liveNewsSrc.match(new RegExp(`id:\\s*'${id}'[^}]*}`, 's'));
+      const match = liveChannelsSvc.match(new RegExp(`id:\\s*'${id}'[^}]*}`, 's'));
       assert.ok(match, `Channel '${id}' not found`);
-      assert.match(match[0], /fallbackVideoId:\s*'[^']+'/,
-        `FULL channel '${id}' missing fallbackVideoId`);
+      assert.match(
+        match[0],
+        /fallbackVideoId:\s*'[^']+'/,
+        `FULL channel '${id}' missing fallbackVideoId`,
+      );
     }
   });
 
@@ -107,27 +120,30 @@ describe('channel data integrity', () => {
     for (const id of allIds) counts[id] = (counts[id] || 0) + 1;
     for (const [id, count] of Object.entries(counts)) {
       if (count > 1) {
-        const defs = [...liveNewsSrc.matchAll(new RegExp(`id:\\s*'${id}'[^}]*}`, 'g'))].map(m => m[0]);
-        const handles = defs.map(d => d.match(/handle:\s*'([^']+)'/)?.[1]);
+        const defs = [...liveChannelsSvc.matchAll(new RegExp(`id:\\s*'${id}'[^}]*}`, 'g'))].map(
+          (m) => m[0],
+        );
+        const handles = defs.map((d) => d.match(/handle:\s*'([^']+)'/)?.[1]);
         const uniqueHandles = new Set(handles);
-        assert.equal(uniqueHandles.size, 1,
-          `Channel '${id}' has conflicting handles across arrays: ${[...uniqueHandles].join(', ')}`);
+        assert.equal(
+          uniqueHandles.size,
+          1,
+          `Channel '${id}' has conflicting handles across arrays: ${[...uniqueHandles].join(', ')}`,
+        );
       }
     }
   });
 
   it('TRT World handle is @TRTWorld (not @taborrtworld)', () => {
-    const trt = liveNewsSrc.match(/id:\s*'trt-world'[^}]*}/);
+    const trt = liveChannelsSvc.match(/id:\s*'trt-world'[^}]*/);
     assert.ok(trt, 'trt-world channel not found');
-    assert.match(trt[0], /handle:\s*'@TRTWorld'/,
-      'TRT World handle should be @TRTWorld');
+    assert.match(trt[0], /handle:\s*'@TRTWorld'/, 'TRT World handle should be @TRTWorld');
   });
 
   it('euronews handle is @euronews (not typo)', () => {
-    const match = liveNewsSrc.match(/id:\s*'euronews'[^}]*}/);
+    const match = liveChannelsSvc.match(/id:\s*'euronews'[^}]*/);
     assert.ok(match, 'euronews channel not found');
-    assert.match(match[0], /handle:\s*'@euronews'/,
-      'euronews handle should be @euronews');
+    assert.match(match[0], /handle:\s*'@euronews'/, 'euronews handle should be @euronews');
   });
 });
 
@@ -135,28 +151,43 @@ describe('channel data integrity', () => {
 
 describe('renderNativeHlsPlayer safety', () => {
   it('validates HLS URL starts with https://', () => {
-    assert.match(liveNewsSrc, /hlsUrl\.startsWith\('https:\/\/'\)/,
-      'Must validate HLS URL is HTTPS before creating video element');
+    assert.match(
+      liveNewsSrc,
+      /hlsUrl\.startsWith\('https:\/\/'\)/,
+      'Must validate HLS URL is HTTPS before creating video element',
+    );
   });
 
   it('captures activeChannel ref for race safety in error handler', () => {
-    assert.match(liveNewsSrc, /const failedChannel\s*=\s*this\.activeChannel/,
-      'Error handler must capture channel ref to avoid race conditions');
+    assert.match(
+      liveNewsSrc,
+      /const failedChannel\s*=\s*this\.activeChannel/,
+      'Error handler must capture channel ref to avoid race conditions',
+    );
   });
 
   it('sets cooldown on HLS failure', () => {
-    assert.match(liveNewsSrc, /this\.hlsFailureCooldown\.set\(failedChannel\.id/,
-      'Must set cooldown timestamp on failure');
+    assert.match(
+      liveNewsSrc,
+      /this\.hlsFailureCooldown\.set\(failedChannel\.id/,
+      'Must set cooldown timestamp on failure',
+    );
   });
 
   it('checks current live media session before fallback', () => {
-    assert.match(liveNewsSrc, /this\.ownsLiveMediaSession\(failedChannel\.id,\s*sessionToken\)/,
-      'Must verify the HLS callback still belongs to the active media session before falling back');
+    assert.match(
+      liveNewsSrc,
+      /this\.liveMediaSessionToken === sessionToken &&\s*\n?\s*this\.activeChannel\.id === failedChannel\.id/,
+      'Must verify the HLS callback still belongs to the active media session before falling back',
+    );
   });
 
   it('explicitly stops video element on error', () => {
-    assert.match(liveNewsSrc, /video\.pause\(\);\s*\n\s*video\.removeAttribute\('src'\)/,
-      'Must pause and clear src on error for explicit cleanup');
+    assert.match(
+      liveNewsSrc,
+      /video\.pause\(\);\s*\n\s*video\.removeAttribute\('src'\)/,
+      'Must pause and clear src on error for explicit cleanup',
+    );
   });
 });
 
@@ -164,13 +195,19 @@ describe('renderNativeHlsPlayer safety', () => {
 
 describe('getDirectHlsUrl cooldown', () => {
   it('checks cooldown map before returning URL', () => {
-    assert.match(liveNewsSrc, /this\.hlsFailureCooldown\.get\(channelId\)/,
-      'Must check cooldown before returning HLS URL');
+    assert.match(
+      liveNewsSrc,
+      /this\.hlsFailureCooldown\.get\(channelId\)/,
+      'Must check cooldown before returning HLS URL',
+    );
   });
 
   it('uses HLS_COOLDOWN_MS for timeout comparison', () => {
-    assert.match(liveNewsSrc, /Date\.now\(\)\s*-\s*failedAt\s*<\s*this\.HLS_COOLDOWN_MS/,
-      'Must compare against HLS_COOLDOWN_MS');
+    assert.match(
+      liveNewsSrc,
+      /Date\.now\(\)\s*-\s*failedAt\s*<\s*HLS_COOLDOWN_MS/,
+      'Must compare against HLS_COOLDOWN_MS',
+    );
   });
 
   it('cooldown is at least 1 minute', () => {
@@ -186,81 +223,120 @@ describe('getDirectHlsUrl cooldown', () => {
 describe('player decision tree', () => {
   it('switchChannel defers media resolution until playback is active or requested', () => {
     const switchMethod = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private async switchChannel'),
-      liveNewsSrc.indexOf('private showOfflineMessage'),
+      liveNewsSrc.indexOf('async switchChannel('),
+      liveNewsSrc.indexOf('togglePlayback(): void {'),
     );
-    const shouldStartPos = switchMethod.indexOf('const shouldStartMedia');
-    const previewOnlyPos = switchMethod.indexOf('if (!shouldStartMedia)');
-    const placeholderPos = switchMethod.indexOf('this.renderPlaceholder()');
+    const shouldStartPos = switchMethod.indexOf('const hasIntent');
+    const previewOnlyPos = switchMethod.indexOf('if (!hasIntent)');
+    const placeholderPos = switchMethod.indexOf('renderPlaceholder()');
     const resolvePos = switchMethod.indexOf('await this.resolveChannelVideo(channel)');
-    const requestPos = switchMethod.indexOf('this.requestPlaybackForActiveChannel()');
+    const requestPos = switchMethod.indexOf('requestPlaybackForActiveChannel()');
     assert.ok(shouldStartPos > 0, 'switchChannel must compute whether media should start');
-    assert.ok(previewOnlyPos > shouldStartPos, 'switchChannel must branch on shouldStartMedia');
-    assert.ok(placeholderPos > previewOnlyPos, 'switchChannel preview-only branch must render the placeholder');
-    assert.ok(resolvePos > placeholderPos, 'switchChannel must not resolve live media before preview-only return');
-    assert.ok(requestPos > resolvePos, 'switchChannel must request playback only after resolving the selected channel');
+    assert.ok(previewOnlyPos > shouldStartPos, 'switchChannel must branch on hasIntent');
+    assert.ok(
+      placeholderPos > previewOnlyPos,
+      'switchChannel preview-only branch must render the placeholder',
+    );
+    assert.ok(
+      resolvePos > placeholderPos,
+      'switchChannel must not resolve live media before preview-only return',
+    );
+    assert.ok(
+      requestPos > resolvePos,
+      'switchChannel must request playback only after resolving the selected channel',
+    );
   });
 
   it('switchChannel re-checks playback intent after async channel resolution', () => {
     const switchMethod = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private async switchChannel'),
-      liveNewsSrc.indexOf('private showOfflineMessage'),
+      liveNewsSrc.indexOf('async switchChannel('),
+      liveNewsSrc.indexOf('togglePlayback(): void {'),
     );
     const resolvePos = switchMethod.indexOf('await this.resolveChannelVideo(channel)');
-    const intentRecheckPos = switchMethod.indexOf('if (!this.hasPlaybackIntent())');
-    const requestPos = switchMethod.indexOf('this.requestPlaybackForActiveChannel()');
+    // lastIndexOf picks the post-resolve re-check (there's an early-return occurrence before the resolve)
+    const intentRecheckPos = switchMethod.lastIndexOf('if (!hasIntent)');
+    const requestPos = switchMethod.indexOf('requestPlaybackForActiveChannel()');
     assert.ok(resolvePos > 0, 'switchChannel must resolve the selected channel');
-    assert.ok(intentRecheckPos > resolvePos, 'switchChannel must re-check playback intent after async resolution');
-    assert.ok(intentRecheckPos < requestPos, 'switchChannel must re-check intent before requesting playback');
+    assert.ok(
+      intentRecheckPos > resolvePos,
+      'switchChannel must re-check playback intent after async resolution',
+    );
+    assert.ok(
+      intentRecheckPos < requestPos,
+      'switchChannel must re-check intent before requesting playback',
+    );
   });
 
   it('YouTube player callbacks are guarded by the current media session', () => {
     const initMethod = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private async initializePlayer'),
-      liveNewsSrc.indexOf('private startBotCheckTimeout'),
+      liveNewsSrc.indexOf('private async initializePlayer(): Promise<void> {'),
+      liveNewsSrc.indexOf('private syncPlayerState(): void {'),
     );
-    assert.match(initMethod, /const playerSessionToken\s*=\s*this\.liveMediaSessionToken/,
-      'initializePlayer must capture the current media session before registering YouTube callbacks');
-    assert.match(initMethod, /onReady:\s*\(\)\s*=>\s*\{\s*if \(!this\.ownsLiveMediaSession\(playerChannelId,\s*playerSessionToken\)\) return;/,
-      'YouTube onReady callback must be guarded by current media session ownership');
-    assert.match(initMethod, /onError:\s*\(event\)\s*=>\s*\{\s*if \(!this\.ownsLiveMediaSession\(playerChannelId,\s*playerSessionToken\)\) return;/,
-      'YouTube onError callback must be guarded by current media session ownership');
+    assert.match(
+      initMethod,
+      /const playerToken\s*=\s*this\.liveMediaSessionToken/,
+      'initializePlayer must capture the current media session before registering YouTube callbacks',
+    );
+    assert.match(
+      initMethod,
+      /onReady:\s*\(\)\s*=>\s*\{\s*if \(\s*this\.liveMediaSessionToken !== playerToken\b/,
+      'YouTube onReady callback must be guarded by current media session ownership',
+    );
+    assert.match(
+      initMethod,
+      /onError:\s*\(event\)\s*=>\s*\{\s*if \(\s*this\.liveMediaSessionToken !== playerToken\b/,
+      'YouTube onError callback must be guarded by current media session ownership',
+    );
   });
 
   it('desktop embed bridge messages are guarded by the current media session', () => {
-    const bridgeMethod = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private setupBridgeMessageListener'),
-      liveNewsSrc.indexOf('private static resolveYouTubeOrigin'),
+    const bridgeSection = liveNewsSrc.slice(
+      liveNewsSrc.indexOf('this._messageHandler = '),
+      liveNewsSrc.indexOf('this._keydownHandler = '),
     );
     const desktopEmbedMethod = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private async renderDesktopEmbedAsync'),
-      liveNewsSrc.indexOf('private async renderNativeHlsPlayer'),
+      liveNewsSrc.indexOf('private renderDesktopEmbed('),
+      liveNewsSrc.indexOf('private startBotCheckTimeout(): void {'),
     );
     const destroyMethod = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private destroyPlayer'),
-      liveNewsSrc.indexOf('private resumeFromIdle'),
+      liveNewsSrc.indexOf('private destroyPlayer(): void {'),
+      liveNewsSrc.indexOf('private renderPlaceholder(): void {'),
     );
-    assert.match(bridgeMethod, /const session\s*=\s*this\.desktopEmbedSession/,
-      'desktop bridge handler must capture the iframe session before processing messages');
-    assert.match(bridgeMethod, /this\.ownsLiveMediaSession\(session\.channelId,\s*session\.sessionToken\)/,
-      'desktop bridge handler must ignore stale iframe messages after ownership changes');
-    assert.match(desktopEmbedMethod, /this\.desktopEmbedSession\s*=\s*\{\s*iframe,\s*channelId,\s*sessionToken\s*\}/,
-      'desktop embed creation must record channel and session ownership');
-    assert.match(destroyMethod, /this\.desktopEmbedSession\s*=\s*null/,
-      'destroyPlayer must clear desktop embed session ownership');
+    assert.match(
+      bridgeSection,
+      /const session\s*=\s*this\.desktopEmbedSession/,
+      'desktop bridge handler must capture the iframe session before processing messages',
+    );
+    assert.match(
+      bridgeSection,
+      /this\.liveMediaSessionToken !== session\.sessionToken/,
+      'desktop bridge handler must ignore stale iframe messages after ownership changes',
+    );
+    assert.match(
+      desktopEmbedMethod,
+      /this\.desktopEmbedSession\s*=\s*\{\s*iframe,\s*channelId,\s*sessionToken\s*\}/,
+      'desktop embed creation must record channel and session ownership',
+    );
+    assert.match(
+      destroyMethod,
+      /this\.desktopEmbedSession\s*=\s*null/,
+      'destroyPlayer must clear desktop embed session ownership',
+    );
   });
 
   it('initializePlayer checks direct HLS before videoId validation', () => {
     const initMethod = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private async initializePlayer'),
-      liveNewsSrc.indexOf('private startBotCheckTimeout'),
+      liveNewsSrc.indexOf('private async initializePlayer(): Promise<void> {'),
+      liveNewsSrc.indexOf('private syncPlayerState(): void {'),
     );
     const hlsPos = initMethod.indexOf('getDirectHlsUrl(this.activeChannel.id)');
-    const videoIdPos = initMethod.indexOf("!/^[\\w-]{10,12}$/.test(this.activeChannel.videoId)");
+    const videoIdPos = initMethod.indexOf('!/^[\\w-]{10,12}$/.test(this.activeChannel.videoId)');
     assert.ok(hlsPos > 0, 'getDirectHlsUrl not found in initializePlayer');
     assert.ok(videoIdPos > 0, 'videoId validation not found in initializePlayer');
-    assert.ok(hlsPos < videoIdPos,
-      'Direct HLS check must come BEFORE videoId validation in initializePlayer');
+    assert.ok(
+      hlsPos < videoIdPos,
+      'Direct HLS check must come BEFORE videoId validation in initializePlayer',
+    );
   });
 });
 
@@ -269,15 +345,17 @@ describe('player decision tree', () => {
 describe('resolveChannelVideo optimization', () => {
   it('skips fetchLiveVideoInfo for desktop direct-HLS channels', () => {
     const resolve = liveNewsSrc.slice(
-      liveNewsSrc.indexOf('private async resolveChannelVideo'),
-      liveNewsSrc.indexOf('private async switchChannel'),
+      liveNewsSrc.indexOf('private async resolveChannelVideo('),
+      liveNewsSrc.indexOf('private showOfflineMessage('),
     );
     const directHlsPos = resolve.indexOf('getDirectHlsUrl(channel.id)');
     const fetchPos = resolve.indexOf('fetchLiveVideoInfo');
     assert.ok(directHlsPos > 0, 'getDirectHlsUrl not in resolveChannelVideo');
     assert.ok(fetchPos > 0, 'fetchLiveVideoInfo not in resolveChannelVideo');
-    assert.ok(directHlsPos < fetchPos,
-      'Direct HLS early return must come before fetchLiveVideoInfo call');
+    assert.ok(
+      directHlsPos < fetchPos,
+      'Direct HLS early return must come before fetchLiveVideoInfo call',
+    );
   });
 });
 
@@ -285,23 +363,27 @@ describe('resolveChannelVideo optimization', () => {
 
 describe('YouTube API hlsManifestUrl extraction', () => {
   it('extracts hlsManifestUrl from page HTML', () => {
-    assert.match(youtubeApi, /hlsManifestUrl/,
-      'API must extract hlsManifestUrl');
+    assert.match(youtubeApi, /hlsManifestUrl/, 'API must extract hlsManifestUrl');
   });
 
   it('unescapes \\u0026 in HLS URL', () => {
-    assert.match(youtubeApi, /\\\\u0026/,
-      'Must unescape \\u0026 to & in HLS URLs');
+    assert.match(youtubeApi, /\\\\u0026/, 'Must unescape \\u0026 to & in HLS URLs');
   });
 
   it('only sets hlsUrl when videoId is present', () => {
-    assert.match(youtubeApi, /hlsMatch\s*&&\s*videoId/,
-      'hlsUrl must only be set when a live videoId was found');
+    assert.match(
+      youtubeApi,
+      /hlsMatch\s*&&\s*videoId/,
+      'hlsUrl must only be set when a live videoId was found',
+    );
   });
 
   it('includes hlsUrl in response JSON', () => {
-    assert.match(youtubeApi, /JSON\.stringify\(\{[^}]*hlsUrl/,
-      'Response must include hlsUrl field');
+    assert.match(
+      youtubeApi,
+      /JSON\.stringify\(\{[^}]*hlsUrl/,
+      'Response must include hlsUrl field',
+    );
   });
 });
 
@@ -309,30 +391,40 @@ describe('YouTube API hlsManifestUrl extraction', () => {
 
 describe('fetchLiveVideoInfo service', () => {
   it('exports fetchLiveVideoInfo function', () => {
-    assert.match(liveNewsSvc, /export async function fetchLiveVideoInfo/,
-      'Must export fetchLiveVideoInfo');
+    assert.match(
+      liveNewsSvc,
+      /export async function fetchLiveVideoInfo/,
+      'Must export fetchLiveVideoInfo',
+    );
   });
 
   it('returns hlsUrl from API response', () => {
-    assert.match(liveNewsSvc, /hlsUrl\s*=\s*data\.hlsUrl/,
-      'Must propagate hlsUrl from API response');
+    assert.match(
+      liveNewsSvc,
+      /hlsUrl\s*=\s*data\.hlsUrl/,
+      'Must propagate hlsUrl from API response',
+    );
   });
 
   it('caches hlsUrl alongside videoId', () => {
-    assert.match(liveNewsSvc, /liveVideoCache\.set\([^)]*hlsUrl/,
-      'Cache must store hlsUrl');
+    assert.match(liveNewsSvc, /liveVideoCache\.set\([^)]*hlsUrl/, 'Cache must store hlsUrl');
   });
 
   it('returns null hlsUrl on error', () => {
-    assert.match(liveNewsSvc, /return\s*\{\s*videoId:\s*null,\s*hlsUrl:\s*null\s*\}/,
-      'Error path must return null for both videoId and hlsUrl');
+    assert.match(
+      liveNewsSvc,
+      /return\s*\{\s*videoId:\s*null,\s*hlsUrl:\s*null\s*\}/,
+      'Error path must return null for both videoId and hlsUrl',
+    );
   });
 
   it('keeps deprecated fetchLiveVideoId for backwards compat', () => {
-    assert.match(liveNewsSvc, /@deprecated/,
-      'fetchLiveVideoId should be marked deprecated');
-    assert.match(liveNewsSvc, /export async function fetchLiveVideoId/,
-      'fetchLiveVideoId must still be exported');
+    assert.match(liveNewsSvc, /@deprecated/, 'fetchLiveVideoId should be marked deprecated');
+    assert.match(
+      liveNewsSvc,
+      /export async function fetchLiveVideoId/,
+      'fetchLiveVideoId must still be exported',
+    );
   });
 });
 
@@ -340,31 +432,33 @@ describe('fetchLiveVideoInfo service', () => {
 
 describe('sidecar youtube-embed endpoint', () => {
   it('registers /api/youtube-embed route', () => {
-    assert.match(sidecarSrc, /\/api\/youtube-embed/,
-      'Sidecar must handle /api/youtube-embed');
+    assert.match(sidecarSrc, /\/api\/youtube-embed/, 'Sidecar must handle /api/youtube-embed');
   });
 
   it('validates videoId format', () => {
-    assert.match(sidecarSrc, /\[A-Za-z0-9_-\]\{11\}/,
-      'Must validate videoId is exactly 11 chars');
+    assert.match(sidecarSrc, /\[A-Za-z0-9_-\]\{11\}/, 'Must validate videoId is exactly 11 chars');
   });
 
   it('rejects invalid videoId with 400', () => {
-    assert.match(sidecarSrc, /status:\s*400/,
-      'Invalid videoId must return 400');
+    assert.match(sidecarSrc, /status:\s*400/, 'Invalid videoId must return 400');
   });
 
   it('whitelists video quality values', () => {
-    assert.match(sidecarSrc, /small.*medium.*large.*hd720.*hd1080/,
-      'Must whitelist quality parameter values');
+    assert.match(
+      sidecarSrc,
+      /small.*medium.*large.*hd720.*hd1080/,
+      'Must whitelist quality parameter values',
+    );
   });
 
   it('is exempt from auth gate (before auth middleware)', () => {
     const embedPos = sidecarSrc.indexOf('/api/youtube-embed');
     const authPos = sidecarSrc.indexOf('Global auth gate');
     assert.ok(embedPos > 0 && authPos > 0, 'Both positions must exist');
-    assert.ok(embedPos < authPos,
-      'youtube-embed must be BEFORE auth gate (iframe src cannot carry auth headers)');
+    assert.ok(
+      embedPos < authPos,
+      'youtube-embed must be BEFORE auth gate (iframe src cannot carry auth headers)',
+    );
   });
 
   it('uses mute param (not hardcoded) in playerVars', () => {
@@ -372,10 +466,16 @@ describe('sidecar youtube-embed endpoint', () => {
       sidecarSrc.indexOf('/api/youtube-embed'),
       sidecarSrc.indexOf('Global auth gate'),
     );
-    assert.match(embedSection, /mute:\$\{mute\}/,
-      'playerVars.mute must use the mute param, not hardcoded mute:1');
-    assert.doesNotMatch(embedSection, /playerVars:\{[^}]*mute:1[^}]*\}/,
-      'playerVars must NOT hardcode mute:1');
+    assert.match(
+      embedSection,
+      /mute:\$\{mute\}/,
+      'playerVars.mute must use the mute param, not hardcoded mute:1',
+    );
+    assert.doesNotMatch(
+      embedSection,
+      /playerVars:\{[^}]*mute:1[^}]*\}/,
+      'playerVars must NOT hardcode mute:1',
+    );
   });
 
   it('has postMessage bridge for play/pause/mute/unmute', () => {
@@ -383,14 +483,26 @@ describe('sidecar youtube-embed endpoint', () => {
       sidecarSrc.indexOf('/api/youtube-embed'),
       sidecarSrc.indexOf('Global auth gate'),
     );
-    assert.match(embedSection, /case'play':.*playVideo/,
-      'postMessage bridge must handle play command');
-    assert.match(embedSection, /case'pause':.*pauseVideo/,
-      'postMessage bridge must handle pause command');
-    assert.match(embedSection, /case'mute':.*\.mute\(\)/,
-      'postMessage bridge must handle mute command');
-    assert.match(embedSection, /case'unmute':.*\.unMute\(\)/,
-      'postMessage bridge must handle unmute command');
+    assert.match(
+      embedSection,
+      /case'play':.*playVideo/,
+      'postMessage bridge must handle play command',
+    );
+    assert.match(
+      embedSection,
+      /case'pause':.*pauseVideo/,
+      'postMessage bridge must handle pause command',
+    );
+    assert.match(
+      embedSection,
+      /case'mute':.*\.mute\(\)/,
+      'postMessage bridge must handle mute command',
+    );
+    assert.match(
+      embedSection,
+      /case'unmute':.*\.unMute\(\)/,
+      'postMessage bridge must handle unmute command',
+    );
   });
 
   it('has play overlay for autoplay failures', () => {
@@ -398,10 +510,16 @@ describe('sidecar youtube-embed endpoint', () => {
       sidecarSrc.indexOf('/api/youtube-embed'),
       sidecarSrc.indexOf('Global auth gate'),
     );
-    assert.match(embedSection, /play-overlay/,
-      'Embed must include a play overlay for WKWebView autoplay fallback');
-    assert.match(embedSection, /setTimeout.*started.*overlay/s,
-      'Play overlay must show after timeout if video has not started');
+    assert.match(
+      embedSection,
+      /play-overlay/,
+      'Embed must include a play overlay for WKWebView autoplay fallback',
+    );
+    assert.match(
+      embedSection,
+      /setTimeout.*started.*overlay/s,
+      'Play overlay must show after timeout if video has not started',
+    );
   });
 
   it('sends yt-ready postMessage to parent on ready', () => {
@@ -409,8 +527,11 @@ describe('sidecar youtube-embed endpoint', () => {
       sidecarSrc.indexOf('/api/youtube-embed'),
       sidecarSrc.indexOf('Global auth gate'),
     );
-    assert.match(embedSection, /postMessage\(\{type:'yt-ready'\}/,
-      'Must send yt-ready message to parent window');
+    assert.match(
+      embedSection,
+      /postMessage\(\{type:'yt-ready'\}/,
+      'Must send yt-ready message to parent window',
+    );
   });
 });
 
@@ -421,24 +542,30 @@ describe('optional channels fallback coverage', () => {
 
   for (const id of highPriorityOptional) {
     it(`${id} has a fallback path`, () => {
-      const match = liveNewsSrc.match(new RegExp(`id:\\s*'${id}'[^}]*}`));
+      const match = liveChannelsSvc.match(new RegExp(`id:\\s*'${id}'[^}]*}`));
       assert.ok(match, `Channel '${id}' not found in OPTIONAL_LIVE_CHANNELS`);
       const hasFallback = /fallbackVideoId:\s*'[A-Za-z0-9_-]{11}'/.test(match[0]);
       const hasHlsUrl = /hlsUrl:\s*'[^']+'/.test(match[0]);
       const hasHandle = /handle:\s*'[^']+'/.test(match[0]);
-      assert.ok(hasFallback || hasHlsUrl || hasHandle,
-        `Optional channel '${id}' must have fallbackVideoId, hlsUrl, or handle`);
+      assert.ok(
+        hasFallback || hasHlsUrl || hasHandle,
+        `Optional channel '${id}' must have fallbackVideoId, hlsUrl, or handle`,
+      );
     });
   }
 
   it('channels with useFallbackOnly also have fallbackVideoId or hlsUrl', () => {
-    const useFallbackMatches = [...liveNewsSrc.matchAll(/id:\s*'([^']+)'[^}]*useFallbackOnly:\s*true[^}]*}/g)];
+    const useFallbackMatches = [
+      ...liveChannelsSvc.matchAll(/id:\s*'([^']+)'[^}]*useFallbackOnly:\s*true[^}]*}/g),
+    ];
     for (const m of useFallbackMatches) {
       const channelId = m[1];
       const hasFallback = /fallbackVideoId:\s*'[^']+'/.test(m[0]);
       const hasHlsUrl = /hlsUrl:\s*'[^']+'/.test(m[0]);
-      assert.ok(hasFallback || hasHlsUrl,
-        `Channel '${channelId}' has useFallbackOnly but no fallbackVideoId or hlsUrl`);
+      assert.ok(
+        hasFallback || hasHlsUrl,
+        `Channel '${channelId}' has useFallbackOnly but no fallbackVideoId or hlsUrl`,
+      );
     }
   });
 });
@@ -447,25 +574,37 @@ describe('optional channels fallback coverage', () => {
 
 describe('CSP configuration', () => {
   it('web header media-src allows https: for CDN HLS streams', () => {
-    assert.ok(getCspDirective(globalCsp, 'media-src').includes('https:'),
-      'web CSP media-src must allow HTTPS for direct HLS CDN streams');
+    assert.ok(
+      getCspDirective(globalCsp, 'media-src').includes('https:'),
+      'web CSP media-src must allow HTTPS for direct HLS CDN streams',
+    );
   });
 
   it('Tauri CSP frame-src allows localhost sidecar iframe origins', () => {
     const frameSrc = getCspDirective(tauriCsp, 'frame-src');
-    assert.ok(frameSrc.includes('http://127.0.0.1:*'),
-      'Tauri CSP frame-src must allow 127.0.0.1 sidecar iframe origins');
-    assert.ok(frameSrc.includes('http://localhost:*'),
-      'Tauri CSP frame-src must allow localhost sidecar iframe origins');
+    assert.ok(
+      frameSrc.includes('http://127.0.0.1:*'),
+      'Tauri CSP frame-src must allow 127.0.0.1 sidecar iframe origins',
+    );
+    assert.ok(
+      frameSrc.includes('http://localhost:*'),
+      'Tauri CSP frame-src must allow localhost sidecar iframe origins',
+    );
   });
 
   it('Tauri CSP media-src allows localhost sidecar and HTTPS HLS media', () => {
     const mediaSrc = getCspDirective(tauriCsp, 'media-src');
-    assert.ok(mediaSrc.includes('https:'),
-      'Tauri CSP media-src must allow HTTPS for direct HLS CDN streams');
-    assert.ok(mediaSrc.includes('http://127.0.0.1:*'),
-      'Tauri CSP media-src must allow 127.0.0.1 sidecar media origins');
-    assert.ok(mediaSrc.includes('http://localhost:*'),
-      'Tauri CSP media-src must allow localhost sidecar media origins');
+    assert.ok(
+      mediaSrc.includes('https:'),
+      'Tauri CSP media-src must allow HTTPS for direct HLS CDN streams',
+    );
+    assert.ok(
+      mediaSrc.includes('http://127.0.0.1:*'),
+      'Tauri CSP media-src must allow 127.0.0.1 sidecar media origins',
+    );
+    assert.ok(
+      mediaSrc.includes('http://localhost:*'),
+      'Tauri CSP media-src must allow localhost sidecar media origins',
+    );
   });
 });

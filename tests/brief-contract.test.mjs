@@ -164,8 +164,8 @@ describe('brief-contract wiring (source-textual)', () => {
   });
 
   it('panel renders story lines and the freshness footer', () => {
-    const src = readSrc('src/components/InsightsPanel.ts');
-    assert.match(src, /renderBriefExtras/);
+    const src = readSrc('src/components/panels/InsightsPanel.tsx');
+    assert.match(src, /BriefExtras/);
     assert.match(src, /insights-brief-lines/);
     assert.match(src, /components\.insights\.briefFreshness/);
   });

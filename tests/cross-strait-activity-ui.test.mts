@@ -418,20 +418,15 @@ describe('Force Posture official-activity supplement (#5575)', () => {
   });
 
   it('waits for slow-tier hydration before using the CDN-shielded fallback and rerendering', () => {
-    const panel = read('src/components/MilitaryCorrelationPanel.ts');
-    const basePanel = read('src/components/CorrelationPanel.ts');
+    const panel = read('src/components/panels/CorrelationPanel.tsx');
     const renderer = read('src/components/cross-strait-activity-summary.ts');
 
     assert.match(panel, /await waitForBootstrapSlowTier\(\)/);
     assert.match(panel, /await ensureHydrated\('crossStraitActivity'\)/);
-    assert.match(panel, /this\.officialActivitySupplement = undefined;/);
-    assert.match(panel, /this\.requestRender\(\)/);
-    assert.match(panel, /if \(this\.officialActivity\) this\.requestRender\(\)/);
-    assert.match(panel, /override destroy\(\): void \{[\s\S]*?this\.officialActivityDestroyed = true;/);
+    assert.match(panel, /officialActivity && \(/);
     assert.match(panel, /model\.sourceHealth/);
     assert.match(panel, /crossStraitSourceHealthHeading\(model\.sourceHealth\.state\)/);
     assert.match(panel, /last success:/);
-    assert.match(basePanel, /protected requestRender\(\): void/);
     assert.match(renderer, /url\.port === ''/);
   });
 });

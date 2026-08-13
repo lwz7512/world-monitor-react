@@ -267,13 +267,16 @@ describe('webmcp.ts: tool behaviour (source-level invariants)', () => {
 // through to a throw if the signal never resolves; withInvocationLogging
 // converts that throw into isError:true.
 describe('webmcp App.ts binding: readiness + teardown', () => {
-  const appSrc = readFileSync(resolve(ROOT, 'src/App.ts'), 'utf-8');
+  // React migration: App.ts class deleted; WebMCP binding moved to app-lifecycle.ts (initApp function)
+  const appSrc = readFileSync(resolve(ROOT, 'src/app/app-lifecycle.ts'), 'utf-8');
+  // openSearch method moved to search-launcher.ts
+  const searchLauncherSrc = readFileSync(resolve(ROOT, 'src/app/search-launcher.ts'), 'utf-8');
   const bindingBlock = appSrc.match(
     /registerWebMcpTools\(\{[\s\S]+?\}\);/,
   );
 
   it('the WebMCP binding block exists in App.ts init', () => {
-    assert.ok(bindingBlock, 'could not locate registerWebMcpTools(...) in App.ts');
+    assert.ok(bindingBlock, 'could not locate registerWebMcpTools(...) in app-lifecycle.ts');
   });
 
   it('is imported statically (not via dynamic import)', () => {
@@ -293,42 +296,37 @@ describe('webmcp App.ts binding: readiness + teardown', () => {
   });
 
   it('is called before the first await in init()', () => {
-    // Anchor the end of the capture to the NEXT class-level member
-    // (public/private) so an intermediate 2-space-indent `}` inside
-    // init() can't truncate the body. A lazy `[\s\S]+?\n  }` match
-    // would stop at the first such closing brace and silently shrink
-    // the slice we search for the pre-await pattern.
+    // React migration: initApp() is a standalone async function (not a class method).
+    // registerWebMcpTools is called near the start of initApp, before any awaits.
     const initBody = appSrc.match(
-      /public async init\(\): Promise<void> \{([\s\S]*?)\r?\n {2}\}(?=\r?\n\r?\n {2}(?:public|private) )/,
+      /export async function initApp\([^)]*\)[^{]*\{([\s\S]*)/,
     );
-    assert.ok(initBody, 'could not locate init() body (anchor to next class member missing)');
+    assert.ok(initBody, 'could not locate initApp() body in app-lifecycle.ts');
     const preAwait = initBody[1].split(/\n\s+await\s/, 2)[0];
     assert.match(
       preAwait,
       /registerWebMcpTools\(/,
-      'registerWebMcpTools must be invoked before the first await in init()',
+      'registerWebMcpTools must be invoked before the first await in initApp()',
     );
   });
 
   it('both bindings reach UI readiness before acting (search via openSearch(), brief directly)', () => {
-    // openSearch binding delegates to App.openSearch(), which awaits
-    // waitForUiReady() internally — so the binding passes throwOnFailure rather
-    // than re-awaiting readiness itself (the redundant outer await + dead guards
-    // were removed in the #4403 review).
+    // React migration: openSearch binding delegates to searchLauncher.openSearch() (not this.openSearch)
     assert.match(
       bindingBlock[0],
-      /openSearch:[\s\S]+?this\.openSearch\(\{ throwOnFailure: true \}\)/,
-      'WebMCP openSearch must delegate to openSearch({ throwOnFailure: true })',
+      /openSearch:[\s\S]+?searchLauncher\.openSearch\(\{ throwOnFailure: true \}\)/,
+      'WebMCP openSearch must delegate to searchLauncher.openSearch({ throwOnFailure: true })',
     );
+    // React migration: openSearch is now in SearchLauncher; awaits waitForUiReady(this.ctx)
     assert.match(
-      appSrc,
-      /private async openSearch\([\s\S]+?await this\.waitForUiReady\(\)[\s\S]+?await this\.ensureSearchManager\(\)/,
+      searchLauncherSrc,
+      /async openSearch\([\s\S]+?await waitForUiReady\(this\.ctx\)[\s\S]+?await this\.ensureSearchManager\(\)/,
       'openSearch() must await waitForUiReady() before loading/opening the search manager',
     );
     assert.match(
       bindingBlock[0],
-      /openCountryBriefByCode:[\s\S]+?await this\.waitForUiReady\(\)[\s\S]+?this\.state\.countryBriefPage/,
-      'openCountryBriefByCode must await waitForUiReady() before accessing countryBriefPage',
+      /openCountryBriefByCode:[\s\S]+?await waitForUiReady\(ctx\)[\s\S]+?ctx\.countryBriefPage/,
+      'openCountryBriefByCode must await waitForUiReady(ctx) before accessing countryBriefPage',
     );
   });
 
@@ -342,42 +340,44 @@ describe('webmcp App.ts binding: readiness + teardown', () => {
       /openSearch:[\s\S]+?throwOnFailure: true/,
       'WebMCP openSearch must opt into throwOnFailure so load/open failures surface',
     );
+    // React migration: openSearch now in search-launcher.ts
     assert.match(
-      appSrc,
-      /private async openSearch\([\s\S]+?if \(!modal\) throw new Error\([\s\S]+?if \(options\.throwOnFailure\) throw error;/,
+      searchLauncherSrc,
+      /async openSearch\([\s\S]+?if \(!modal\) throw new Error\([\s\S]+?if \(options\.throwOnFailure\) throw error;/,
       'openSearch() must throw on a missing modal and rethrow under throwOnFailure',
     );
     assert.match(
       bindingBlock[0],
-      /openCountryBriefByCode:[\s\S]+?if \(!this\.state\.countryBriefPage\)[\s\S]+?throw new Error/,
+      /openCountryBriefByCode:[\s\S]+?if \(!ctx\.countryBriefPage\)[\s\S]+?throw new Error/,
     );
   });
 
   it('first-load search toggles use an epoch + net-intent accumulator (not a stale snapshot)', () => {
     // Runtime behavior (XOR parity, interleave, failure paths) is covered by
     // tests/search-open-state-machine.test.mjs; here we pin the structural shape.
+    // React migration: epoch and toggle tracking moved to SearchLauncher class
     assert.match(
-      appSrc,
+      searchLauncherSrc,
       /private openSearchEpoch = 0;/,
-      'App must track a monotonic openSearch epoch',
+      'SearchLauncher must track a monotonic openSearch epoch',
     );
     assert.match(
-      appSrc,
+      searchLauncherSrc,
       /private searchToggleDesiredOpen = false;/,
-      'App must accumulate net toggle intent during first lazy load',
+      'SearchLauncher must accumulate net toggle intent during first lazy load',
     );
     assert.match(
-      appSrc,
+      searchLauncherSrc,
       /this\.searchToggleDesiredOpen = !this\.searchToggleDesiredOpen;[\s\S]+?epoch = \+\+this\.openSearchEpoch;[\s\S]+?await this\.ensureSearchManager\(\)[\s\S]+?if \(this\.openSearchEpoch !== epoch\) return;/,
       'openSearch must flip net intent before claiming an epoch and bail when superseded',
     );
     assert.doesNotMatch(
-      appSrc,
-      /const wasOpen = this\.state\.searchModal\?\.isOpen\(\) === true;/,
+      searchLauncherSrc,
+      /const wasOpen = this\.ctx\.searchModal\?\.isOpen\(\) === true;/,
       'openSearch must not capture searchModal state before awaiting UI readiness/import',
     );
     assert.doesNotMatch(
-      appSrc,
+      searchLauncherSrc,
       /pendingSearchToggleShouldOpen/,
       'the superseded pending-toggle bookkeeping must be fully removed',
     );
@@ -387,31 +387,32 @@ describe('webmcp App.ts binding: readiness + teardown', () => {
     // waitForUiReady() hangs forever if nothing ever resolves uiReady.
     // The resolve must live right after countryIntel.init() so that all
     // Phase-4 modules are ready by the time waiters unblock.
+    // React migration: was this.countryIntel.init() / this.resolveUiReady() — now standalone calls
     assert.match(
       appSrc,
-      /this\.countryIntel\.init\(\);[\s\S]{0,200}this\.resolveUiReady\(\)/,
-      'resolveUiReady() must fire after countryIntel.init() in Phase 4',
+      /countryIntel\.init\(\);[\s\S]{0,200}ctx\.resolveUiReady\(\)/,
+      'ctx.resolveUiReady() must fire after countryIntel.init() in Phase 4',
     );
   });
 
   it('waitForUiReady enforces a timeout so a broken init cannot hang the agent', () => {
+    // React migration: waitForUiReady is now an exported function in search-launcher.ts
     assert.match(
-      appSrc,
-      /private async waitForUiReady\(timeoutMs = [\d_]+\)[\s\S]+?Promise\.race\(\[this\.uiReady/,
+      searchLauncherSrc,
+      /export async function waitForUiReady\([^,)]+,\s*timeoutMs = [\d_]+\)[\s\S]+?Promise\.race\(\[ctx\.uiReady/,
     );
   });
 
   it('destroy() aborts the WebMCP controller so re-inits do not duplicate registrations', () => {
-    // Same anchoring as init() — end at the next class member so an
-    // intermediate 2-space-indent close brace can't truncate the capture.
+    // React migration: destroy() class method moved to destroyApp() standalone function
     const destroyBody = appSrc.match(
-      /public destroy\(\): void \{([\s\S]*?)\r?\n {2}\}(?=\r?\n\r?\n {2}(?:public|private) )/,
+      /export function destroyApp\([^)]*\)[^{]*\{([\s\S]*?)^}/m,
     );
-    assert.ok(destroyBody, 'could not locate destroy() body (anchor to next class member missing)');
+    assert.ok(destroyBody, 'could not locate destroyApp() body in app-lifecycle.ts');
     assert.match(
       destroyBody[1],
-      /this\.webMcpController\?\.abort\(\)/,
-      'destroy() must abort the stored WebMCP AbortController',
+      /webMcpController\?\.abort\(\)/,
+      'destroyApp() must abort the stored WebMCP AbortController',
     );
   });
 });
