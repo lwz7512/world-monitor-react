@@ -1,0 +1,309 @@
+import { enqueueSentryCall } from '@/bootstrap/sentry-defer';
+
+// CSP violation filter — exported for testability.
+// Returns true if the violation should be suppressed (not reported to Sentry).
+export function shouldSuppressCspViolation(
+  disposition: string,
+  directive: string,
+  blockedURI: string,
+  sourceFile: string,
+  cspConnectSrcAllowsHttps: boolean,
+  firstPartyConvexHost: string | null,
+  cspMediaSrcAllowsHttps: boolean = false,
+): boolean {
+  // Skip non-enforced violations (report-only from dual-CSP interaction).
+  if (disposition && disposition !== 'enforce') return true;
+  // connect-src + HTTPS: only suppress when the page CSP actually allows https: scheme.
+  // This is scoped to the current policy state, not a blanket protocol assumption.
+  if (directive === 'connect-src' && cspConnectSrcAllowsHttps) {
+    try {
+      if (new URL(blockedURI).protocol === 'https:') return true;
+    } catch { /* scheme-only values like "blob" fall through */ }
+  }
+  // media-src + HTTPS: HLS / live-stream media-element loads. Our header CSP
+  // allows the `https:` scheme (`media-src 'self' data: blob: https:`), so an
+  // *enforced* https: media-src block means a corporate proxy / privacy extension
+  // stripped `https:` from the user's effective media-src — the same environmental
+  // policy mutation as the connect-src case above. The HLS *manifest* fetch is
+  // connect-src (already suppressed via the foxnews-style rule); this covers the
+  // media element load of that same stream. Built-in and user-added custom HLS
+  // channels (LiveNewsPanel) both hit this — WORLDMONITOR-HV (bloomberg.com
+  // us.m3u8, 4 users). Gated on policy detection so it stays scoped to the
+  // current policy state, not a blanket protocol assumption. http: media-src
+  // blocks (real mixed-content) still surface.
+  if (directive === 'media-src' && cspMediaSrcAllowsHttps) {
+    try {
+      if (new URL(blockedURI).protocol === 'https:') return true;
+    } catch { /* scheme-only values fall through */ }
+  }
+  // Baidu read-aloud / TTS browser extensions (common in the Chinese market)
+  // inject an `<audio src="http://tts.baidu.com/text2audio?...&text=<selected
+  // text>">` element to speak page content when the user clicks/selects it. We
+  // never load tts.baidu.com (it appears nowhere in src) and our media-src
+  // allows only `'self' data: blob: https:`, so this http: load is third-party
+  // mixed-content the CSP correctly blocks — the audio never plays regardless of
+  // our code. UNLIKE the https: media-src rule above this is NOT protocol-gated
+  // on policy detection: it is host-pinned to an exact third-party hostname we
+  // provably never reference, so suppressing its http: block cannot mask a
+  // first-party mixed-content regression (we ship no http:// media). Parsed
+  // hostname match (not substring) so a `tts.baidu.com.evil.com` lookalike still
+  // surfaces (WORLDMONITOR-TW — map-popup description read-aloud, 1 user).
+  if (directive === 'media-src') {
+    try {
+      if (new URL(blockedURI).hostname === 'tts.baidu.com') return true;
+    } catch { /* scheme-only values fall through */ }
+  }
+  // default-src + HTTP: mixed-content block on a fetch type we set no explicit
+  // directive for — i.e. browser link-prefetch ("Preload pages" speculation) or
+  // an extension article-prefetcher. News article links render as plain
+  // <a target="_blank"> navigations (NewsPanel/ClimateNewsPanel/etc.) carrying
+  // feed-supplied URLs; some sources / downgrading proxies emit them over http:,
+  // and the browser/extension speculatively fetches them — the load falls to the
+  // default-src fallback because we set no prefetch-src. Our app is HTTPS-only and
+  // ships no http:// subresource loads, and every fetch directive we DO use
+  // (connect-src, img-src, script-src, media-src) is set explicitly, so a genuine
+  // first-party mixed-content fetch surfaces under its specific directive — never
+  // this default-src fallback. Preserve first-party worldmonitor.app http blocks
+  // so a real mixed-content regression on our own assets still surfaces
+  // (WORLDMONITOR-S0 — http://www.euronews.com article prefetch, 1 user/775 ev).
+  if (directive === 'default-src') {
+    try {
+      const u = new URL(blockedURI);
+      if (u.protocol === 'http:'
+          && u.hostname !== 'worldmonitor.app'
+          && !u.hostname.endsWith('.worldmonitor.app')) return true;
+    } catch { /* scheme-only values fall through */ }
+  }
+  // First-party Convex backend: corporate proxies / privacy extensions that mutate the
+  // page CSP (stripping bare `https:` from connect-src) cause our Convex sync calls to
+  // be CSP-blocked even though our policy allows them. Suppress unconditionally for OUR
+  // configured Convex deployment hostname (`VITE_CONVEX_URL`) so we don't drown Sentry
+  // in 1M+ events/month from those users (WORLDMONITOR-HN). Convex is multi-tenant —
+  // do NOT suppress all `*.convex.cloud`, that would silently swallow blocks to foreign/
+  // attacker-controlled Convex projects. Match by exact hostname only. Real first-party
+  // CSP regressions on this host are caught by the staging deploy + uptime check.
+  if (directive === 'connect-src' && firstPartyConvexHost) {
+    try {
+      if (new URL(blockedURI).hostname === firstPartyConvexHost) return true;
+    } catch { /* scheme-only values fall through */ }
+  }
+  // First-party img-src block on OUR registrable domain: same pattern as the Convex
+  // connect-src case above. Corporate proxies / privacy extensions (Zscaler, Symantec
+  // CloudSOC, school content-filters) can strip both `'self'` and `https:` from img-src
+  // in the user's effective policy, causing our own favicon and panel icons to be
+  // CSP-blocked even though our policy (`img-src 'self' data: blob: https:`) allows
+  // them. Scope to `worldmonitor.app` and its subdomains — img-src blocks to foreign
+  // hosts (a third-party CDN we never load, attacker-controlled host) still surface
+  // (WORLDMONITOR-JP). Suffix check uses a leading `.` so lookalikes like
+  // `worldmonitor.app.evil.com` do NOT match.
+  //
+  // REQUIRE https: protocol — our CSP only allows https: for img-src, so a real
+  // mixed-content regression (`<img src="http://worldmonitor.app/...">`) would be
+  // blocked by the browser. Suppressing http: blocks on first-party hosts would mask
+  // that regression in Sentry. The `cspConnectSrcAllowsHttps` block above uses the
+  // same protocol gate for connect-src.
+  if (directive === 'img-src') {
+    try {
+      const url = new URL(blockedURI);
+      if (url.protocol === 'https:'
+          && (url.hostname === 'worldmonitor.app' || url.hostname.endsWith('.worldmonitor.app'))) return true;
+    } catch { /* scheme-only values fall through */ }
+  }
+  // YouTube IFrame API loader: explicitly allowed by our script-src
+  // (`https://www.youtube.com`), so a block here means a third party (extension,
+  // corporate proxy, in-app webview) mutated the policy. Not actionable — embedded
+  // video remains broken in that user's environment regardless of our code
+  // (WORLDMONITOR-HP).
+  if (
+    (directive === 'script-src-elem' || directive === 'script-src')
+    && /^https:\/\/www\.youtube\.com\/iframe_api(?:\?|$)/.test(blockedURI)
+  ) return true;
+  // Zscaler enterprise content-filter proxy: `gateway.zscloud.net` is injected into
+  // corporate users' frames by Zscaler's web filter agent. We never load it ourselves;
+  // it's inserted into the host page outside our control (WORLDMONITOR-HT). Match by
+  // parsed hostname so a `gateway.zscloud.net.evil.com` lookalike doesn't bypass the
+  // surrounding signal filters.
+  if (directive === 'frame-src') {
+    try {
+      const frameHost = new URL(blockedURI).hostname;
+      if (frameHost === 'gateway.zscloud.net') return true;
+      // Same class, other vendors (WORLDMONITOR-HT long tail): NetSTAR inSITE
+      // (gw-*.iss.netstar-inc.com), Techloq (filter.techloq.com — kosher
+      // content filter), Trend Micro password-manager/agent asset frames
+      // (pwm-image.trendmicro.com). All are filter/security agents framing
+      // their own vendor hosts into every page; we never frame any of them.
+      // Parsed-hostname suffix match with a leading `.` so lookalike
+      // registrable domains (netstar-inc.com.evil.com) do not match.
+      if (frameHost === 'netstar-inc.com' || frameHost.endsWith('.netstar-inc.com')) return true;
+      if (frameHost === 'techloq.com' || frameHost.endsWith('.techloq.com')) return true;
+      if (frameHost === 'trendmicro.com' || frameHost.endsWith('.trendmicro.com')) return true;
+      // Google-internal extension/API hosts (`*.clients6.google.com`, e.g.
+      // toolytics.pa.clients6.google.com) framed by Google-account browser
+      // surfaces and extensions. We never frame Google API hosts — but keep
+      // accounts.google.com / support.google.com SURFACED: a future first-party
+      // Google sign-in embed regression must not be masked.
+      if (frameHost.endsWith('.clients6.google.com')) return true;
+      // Tampermonkey "h5player" video-enhancement userscript (large Chinese
+      // install base) frames its own vendor host into every page with a
+      // <video> element. We never reference anzz.site; exact parsed-hostname
+      // match like the vendor rules above so lookalikes still surface
+      // (WORLDMONITOR-HT long tail — 5.8k events / 1.2k users since March).
+      if (frameHost === 'h5player.anzz.site') return true;
+    } catch { /* scheme-only values fall through */ }
+  }
+  // Browser extensions or injected scripts. `ms-browser-extension://` is Edge's
+  // scheme for legacy/internal extensions (WORLDMONITOR-JM).
+  if (/^(?:chrome|moz|safari(?:-web)?|ms-browser)-extension/.test(sourceFile) || /^(?:chrome|moz|safari(?:-web)?|ms-browser)-extension/.test(blockedURI)) return true;
+  // blob: — browsers report "blob" (scheme-only) or "blob:https://...".
+  if (blockedURI === 'blob' || /^blob:/.test(sourceFile) || /^blob:/.test(blockedURI)) return true;
+  // eval/inline/data.
+  if (blockedURI === 'eval' || blockedURI === 'inline' || blockedURI === 'data' || /^data:/.test(blockedURI)) return true;
+  // about: — browsers report "about" (scheme-only) or "about:blank" / "about:srcdoc"
+  // for iframes created by extensions, ad-injectors, or Smart TV browsers (Samsung
+  // Internet on Tizen). We never set frame src to about:* ourselves (WORLDMONITOR-JQ).
+  if (blockedURI === 'about' || /^about:/.test(blockedURI)) return true;
+  // Android WebView video poster injection.
+  if (blockedURI === 'android-webview-video-poster') return true;
+  // Own manifest.webmanifest — stale CSP cache hit.
+  if (/manifest\.webmanifest$/.test(blockedURI)) return true;
+  // Third-party injectors: Google Translate, Facebook Pixel.
+  if (/gstatic\.com\/_\/translate/.test(blockedURI) || /facebook\.net/.test(blockedURI)) return true;
+  // Google Fonts font files from stale or injected stylesheets. The dashboard now
+  // self-hosts its own fonts and the deploy/config tests keep Google Fonts out of
+  // dashboard CSP/source surfaces; if a user's browser still tries
+  // fonts.gstatic.com/s/*.woff2, the strict font-src block is expected noise.
+  if (directive === 'font-src') {
+    try {
+      const url = new URL(blockedURI);
+      if (url.protocol === 'https:' && url.hostname === 'fonts.gstatic.com' && /^\/s\/.+\.woff2$/.test(url.pathname)) return true;
+      // Perplexity's Comet browser / extension injects its own UI webfont
+      // (frontend-cdn.perplexity.ai/_agi_assets/fonts/*.woff2) into every page.
+      // We never load it; the block is the overlay's font failing regardless of
+      // our code. Allowlisted by exact host like gstatic above — NOT a blanket
+      // third-party suppression, so an unexpected font injection from any other
+      // host still surfaces (WORLDMONITOR-TR: 1065 events / 83 users).
+      if (url.protocol === 'https:' && url.hostname === 'frontend-cdn.perplexity.ai' && /\.woff2?$/.test(url.pathname)) return true;
+      // ByteDance's Doubao AI-assistant browser/extension injects its overlay's
+      // KaTeX math fonts (lf-flow-web-cdn.doubao.com/obj/flow-doubao/...) into
+      // every page — .woff2/.woff/.ttf fallback chain, so all three extensions
+      // appear. We never load it; exact host + font-file path like the rules
+      // above, NOT a blanket third-party suppression (WORLDMONITOR-TR round 2:
+      // 310k events / 308 users in 11 days).
+      if (url.protocol === 'https:' && url.hostname === 'lf-flow-web-cdn.doubao.com' && /\.(?:woff2?|ttf)$/.test(url.pathname)) return true;
+    } catch { /* scheme-only values fall through */ }
+  }
+  // YouTube live stream manifests.
+  if (/googlevideo\.com|youtube\.com\/generate_204/.test(blockedURI)) return true;
+  // Corporate/school content filter injections.
+  if (/securly\.com|goguardian\.com|contentkeeper\.com/.test(blockedURI)) return true;
+  // Vercel Analytics script.
+  if (/_vercel\/insights\/script\.js/.test(blockedURI)) return true;
+  // Third-party stylesheet injection from public CDNs (browser extensions,
+  // bookmarklets, "inspect element" UI tools loading antd/bootstrap/etc.).
+  // We legitimately load JS from `cdn.jsdelivr.net` (chart.js in the
+  // widget-sanitizer iframe), but never CSS — so a `style-src*` block on
+  // jsDelivr is by definition third-party
+  // injection (WORLDMONITOR-J0 — antd@4 CSS injection, 270 events / 26
+  // users on finance.worldmonitor.app).
+  if (/^style-src(-elem)?$/.test(directive) && /^https:\/\/cdn\.jsdelivr\.net\//.test(blockedURI)) return true;
+  // Google Fonts CSS injected by extensions/user-style themes (DM Sans, Syne,
+  // Roboto… — families we never reference). The dashboard self-hosts all fonts
+  // and the deploy/config tests keep Google Fonts out of our source/CSP
+  // surfaces, so a style-src* block on fonts.googleapis.com/css* is by
+  // definition third-party injection — the stylesheet counterpart of the
+  // fonts.gstatic.com font-src rule above (WORLDMONITOR-J0 round 2). Exact
+  // host + /css path; Google Fonts under any other directive still surfaces.
+  if (/^style-src(-elem)?$/.test(directive)) {
+    try {
+      const url = new URL(blockedURI);
+      if (url.protocol === 'https:' && url.hostname === 'fonts.googleapis.com' && /^\/css2?$/.test(url.pathname)) return true;
+      // Chinese-market extension CDN injecting its overlay stylesheet
+      // (www.6ppn.com/ext/assets/style.<hash>.css — the /ext/ path is the
+      // extension's own asset root). Exact host + .css path (WORLDMONITOR-J0).
+      if (url.protocol === 'https:' && url.hostname === 'www.6ppn.com' && /\.css$/.test(url.pathname)) return true;
+    } catch { /* unparseable values fall through */ }
+    // Extension bug: a literal unsubstituted `[email]` template placeholder as
+    // the stylesheet URL. Not a parseable host; can never be first-party.
+    if (blockedURI === 'https://[email]') return true;
+  }
+  // Inline script blocks from extensions/in-app browsers.
+  if (blockedURI === 'inline' && directive === 'script-src-elem') return true;
+  // Null blocked URI from in-app browsers.
+  if (blockedURI === 'null') return true;
+  // localhost/loopback — Smart TV browsers (Tizen, webOS) and dev tools inject local service calls.
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(blockedURI)) return true;
+  return false;
+}
+
+/**
+ * Detects effective CSP policy state and wires the `securitypolicyviolation`
+ * listener that reports (filtered) CSP violations to Sentry.
+ *
+ * Report CSP violations in the parent page to Sentry. Sandbox iframe
+ * violations are isolated and not captured here. Call this eagerly during
+ * boot so early violations (during the deferred-Sentry-init window) are
+ * still observed; `enqueueSentryCall` forwards immediately if the SDK is up,
+ * otherwise buffers until drain.
+ */
+export function installCspViolationReporting(): void {
+  // Detect once whether the effective dashboard CSP allows https: in connect-src.
+  // The dashboard policy now ships as an HTTP header only; older/stale documents
+  // may still carry a meta CSP, so if one exists, honor it as the stricter local
+  // signal. Otherwise the deployed header is the source of truth.
+  const cspAllowsHttps = (() => {
+    const metaEl = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    if (!metaEl) return true;
+    const metaCsp = metaEl.getAttribute('content') ?? '';
+    const metaConnectSrc = metaCsp.match(/connect-src\s+([^;]*)/)?.[1] ?? '';
+    return metaConnectSrc.split(/\s+/).includes('https:');
+  })();
+  // media-src counterpart of `cspAllowsHttps`.
+  const cspMediaSrcAllowsHttps = (() => {
+    const metaEl = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+    if (!metaEl) return true;
+    const metaCsp = metaEl.getAttribute('content') ?? '';
+    const metaMediaSrc = metaCsp.match(/media-src\s+([^;]*)/)?.[1] ?? '';
+    return metaMediaSrc.split(/\s+/).includes('https:');
+  })();
+  // Resolve our configured Convex deployment hostname once. Convex is multi-tenant —
+  // the CSP filter must scope its first-party suppression to OUR specific hostname,
+  // not all *.convex.cloud, otherwise blocks to foreign/attacker tenants get silently
+  // dropped too. Returns null when the env var is missing (dev/test); the filter
+  // then leaves connect-src violations to fall through to the next rule.
+  const firstPartyConvexHost = ((): string | null => {
+    const url = import.meta.env.VITE_CONVEX_URL;
+    if (typeof url !== 'string' || url.length === 0) return null;
+    try { return new URL(url).hostname; } catch { return null; }
+  })();
+  // @ts-expect-error — expose for tests
+  window.__shouldSuppressCspViolation = shouldSuppressCspViolation;
+
+  window.addEventListener('securitypolicyviolation', (e) => {
+    const blocked = e.blockedURI ?? '';
+    if (shouldSuppressCspViolation(
+      e.disposition ?? '',
+      e.effectiveDirective ?? '',
+      blocked,
+      e.sourceFile ?? '',
+      cspAllowsHttps,
+      firstPartyConvexHost,
+      cspMediaSrcAllowsHttps,
+    )) return;
+    const message = `CSP: ${e.effectiveDirective} blocked ${blocked || '(inline)'}`;
+    const extra = {
+      violatedDirective: e.violatedDirective,
+      effectiveDirective: e.effectiveDirective,
+      blockedURI: blocked,
+      sourceFile: e.sourceFile,
+      lineNumber: e.lineNumber,
+      disposition: e.disposition,
+    };
+    enqueueSentryCall((s) => {
+      s.captureMessage(message, {
+        level: 'warning',
+        tags: { kind: 'csp_violation' },
+        extra,
+      });
+    });
+  });
+}

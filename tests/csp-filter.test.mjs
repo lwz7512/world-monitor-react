@@ -1,26 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Extract the shouldSuppressCspViolation function from main.tsx source.
-// We parse it as a standalone function to avoid importing the entire Sentry/App bootstrap.
-// React migration: main.ts renamed to main.tsx
-const mainSrc = readFileSync(resolve(__dirname, '../src/main.tsx'), 'utf-8');
-const fnMatch = mainSrc.match(/function shouldSuppressCspViolation\(([\s\S]*?)\): boolean \{([\s\S]*?)\nfunction |function shouldSuppressCspViolation\(([\s\S]*?)\): boolean \{([\s\S]*?)\n\}/);
-assert.ok(fnMatch, 'shouldSuppressCspViolation must exist in src/main.tsx');
-
-// Build a callable version from the source text
-const fnBody = (fnMatch[2] ?? fnMatch[4]).trim();
-const fnParams = (fnMatch[1] ?? fnMatch[3])
-  .split(',')
-  .map(p => p.replace(/:.*/s, '').trim())
-  .filter(Boolean);
-// eslint-disable-next-line no-new-func
-const suppress = new Function(...fnParams, fnBody);
+import { shouldSuppressCspViolation as suppress } from '../src/bootstrap/csp-violation-filter.ts';
 
 describe('CSP violation filter (shouldSuppressCspViolation)', () => {
   describe('disposition gating', () => {
