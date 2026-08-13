@@ -173,7 +173,19 @@ type CountryScore = any;
 const getCachedScores = () => (globalThis as any).__ciiSourceTruthTest.cachedScores;
 const toCountryScore = (score: any) => score;
 
+// React migration: data-loader now calls module-level setCiiData/setCiiUnavailable
+// (imported from @/services/cii-store) instead of this.callPanel('cii', ...).
+// Stubs below map those calls back to panelCalls for harness assertions.
+let __activeHarness: DataLoaderCiiHarness | null = null;
+function setCiiData(cached: any): void {
+  __activeHarness?.panelCalls.push({ method: 'renderFromCached', args: [cached] });
+}
+function setCiiUnavailable(): void {
+  __activeHarness?.panelCalls.push({ method: 'renderUnavailable', args: [] });
+}
+
 export class DataLoaderCiiHarness {
+  constructor() { __activeHarness = this; }
   private appliedCiiState: CachedRiskScores | null | undefined;
   public panelCalls: Array<{ method: string; args: any[] }> = [];
   public mapScoreCalls: any[][] = [];
@@ -215,7 +227,7 @@ export class DataLoaderCiiHarness {
 
 async function loadStrategicRiskRefreshHarness() {
   const refreshMethod = extractMethod(
-    readSrc('src/components/StrategicRiskPanel.ts'),
+    readSrc('src/components/panels/StrategicRiskPanel.tsx'),
     'public async refresh(): Promise<boolean>',
   );
   const harnessSrc = `
@@ -303,14 +315,18 @@ describe('frontend CII source of truth', () => {
   it('keeps cached backend CII authoritative and renders unavailable instead of calculating locally', () => {
     const src = readSrc('src/app/data-loader.ts');
     const eventHandlersSrc = readSrc('src/app/event-handlers.ts');
-    const appSrc = readSrc('src/App.ts');
-    const ciiPanelSrc = readSrc('src/components/CIIPanel.ts');
+    // React migration: App.ts class deleted; event handler wiring moved to create-app-managers.ts
+    const appSrc = readSrc('src/app/create-app-managers.ts');
+    // React migration: class-based CIIPanel.ts deleted; rendering is now in CIIPanel.tsx
+    const ciiPanelSrc = readSrc('src/components/panels/CIIPanel.tsx');
+    const ciiStoreSrc = readSrc('src/services/cii-store.ts');
     const refreshBody = extractMethod(src, 'private refreshCiiAndBrief(): void');
-    const ciiUnavailableBody = extractMethod(ciiPanelSrc, 'public renderUnavailable(): void');
-    const eventHandlerWiringStart = appSrc.indexOf('this.eventHandlers = new EventHandlerManager');
+    // React migration: EventHandlerManager replaced by direct callbacks in create-app-managers.ts
+    // The wiring now lives in the eventHandlerCallbacks block before publishAppActions()
+    const eventHandlerWiringStart = appSrc.indexOf('const eventHandlerCallbacks = {');
     const eventHandlerWiringEnd = appSrc.indexOf('// Wire cross-module callback', eventHandlerWiringStart);
-    assert.notEqual(eventHandlerWiringStart, -1, 'missing EventHandlerManager wiring');
-    assert.notEqual(eventHandlerWiringEnd, -1, 'missing EventHandlerManager wiring end marker');
+    assert.notEqual(eventHandlerWiringStart, -1, 'missing event handler callbacks wiring');
+    assert.notEqual(eventHandlerWiringEnd, -1, 'missing event handler callbacks wiring end marker');
     const eventHandlerWiring = appSrc.slice(eventHandlerWiringStart, eventHandlerWiringEnd);
 
     assert.doesNotMatch(src, /private cachedRiskScores:/);
@@ -324,7 +340,8 @@ describe('frontend CII source of truth', () => {
     assert.match(refreshBody, /const cached = this\.getAuthoritativeCachedRiskScores\(\);/);
     assert.match(refreshBody, /if \(cached\) \{[\s\S]*this\.renderCachedCiiScores\(cached\)[\s\S]*return;[\s\S]*\}/);
     assert.match(refreshBody, /if \(this\.appliedCiiState === null\) return;/);
-    assert.match(refreshBody, /this\.callPanel\('cii', 'renderUnavailable'\);/);
+    // React migration: data-loader now calls setCiiUnavailable() (cii-store) instead of this.callPanel(...)
+    assert.match(refreshBody, /setCiiUnavailable\(\);/);
     assert.match(refreshBody, /this\.applyCiiScoresToMap\(\[\]\);/);
 
     assert.match(eventHandlersSrc, /refreshCiiAfterFocalPointsReady\?: \(\) => void;/);
@@ -333,11 +350,12 @@ describe('frontend CII source of truth', () => {
     assert.doesNotMatch(eventHandlersSrc, /CIIPanel/);
     assert.doesNotMatch(eventHandlersSrc, /\.refresh\(true\)/);
     assert.doesNotMatch(eventHandlerWiring, /refreshOpenCountryBrief/);
-    assert.match(appSrc, /refreshCiiAfterFocalPointsReady: \(\) => this\.dataLoader\.refreshCiiAfterFocalPointsReady\(\)/);
+    // React migration: dataLoader local variable instead of this.dataLoader class field
+    assert.match(appSrc, /refreshCiiAfterFocalPointsReady: \(\) => dataLoader\.refreshCiiAfterFocalPointsReady\(\)/);
 
-    assert.match(ciiUnavailableBody, /this\.scores = \[\];/);
-    assert.match(ciiUnavailableBody, /this\.setDataBadge\('unavailable'\);/);
-    assert.match(ciiUnavailableBody, /t\('common\.failedCII'\)/);
+    // React migration: unavailable state handled in cii-store + CIIPanel.tsx (JSX)
+    assert.match(ciiStoreSrc, /setCiiUnavailable[\s\S]*\{ type: 'unavailable' \}/);
+    assert.match(ciiPanelSrc, /t\('common\.failedCII'\)/);
   });
 
   it('applies canonical CII availability transitions once per state change', async () => {
@@ -397,7 +415,7 @@ describe('frontend CII source of truth', () => {
   });
 
   it('renders Strategic Risk from cached strategic risk/CII instead of only marking the badge cached', () => {
-    const src = readSrc('src/components/StrategicRiskPanel.ts');
+    const src = readSrc('src/components/panels/StrategicRiskPanel.tsx');
     const overviewSrc = readSrc('src/services/cross-module-integration.ts');
     const refreshBody = extractMethod(src, 'public async refresh(): Promise<boolean>');
     const cachedTimestampBody = extractMethod(src, 'private cachedTimestamp(cached: CachedRiskScores): Date | null');
@@ -449,23 +467,17 @@ describe('frontend CII source of truth', () => {
   });
 
   it('localizes cached CII degraded/stale state labels', () => {
-    const ciiSrc = readSrc('src/components/CIIPanel.ts');
-    const riskSrc = readSrc('src/components/StrategicRiskPanel.ts');
+    // React migration: CIIPanel.tsx no longer has formatCachedSourceDetail (class method gone);
+    // degraded/stale labels are now handled inline in StrategicRiskPanel.tsx JSX.
+    const riskSrc = readSrc('src/components/panels/StrategicRiskPanel.tsx');
     const enLocaleSrc = readSrc('src/locales/en.json');
-    const ciiDetailBody = extractMethod(
-      ciiSrc,
-      "private formatCachedSourceDetail(cached: Pick<CachedRiskScores, 'degraded' | 'stale'>): string",
-    );
-    const cachedBannerBody = extractMethod(riskSrc, 'private renderCachedRiskStateBanner(): string');
 
-    assert.match(ciiDetailBody, /t\('components\.cii\.sourceStates\.degraded'\)/);
-    assert.match(ciiDetailBody, /t\('components\.cii\.sourceStates\.stale'\)/);
-    assert.doesNotMatch(ciiDetailBody, /flags\.push\('degraded'\)|flags\.push\('stale'\)/);
-
-    assert.match(cachedBannerBody, /t\('components\.strategicRisk\.sourceStates\.degraded'\)/);
-    assert.match(cachedBannerBody, /t\('components\.strategicRisk\.sourceStates\.stale'\)/);
-    assert.match(cachedBannerBody, /t\('components\.strategicRisk\.cachedCiiStatus', \{ states: labels\.join\(' · '\) \}\)/);
-    assert.doesNotMatch(cachedBannerBody, /'degraded'|'stale'|Cached CII/);
+    // StrategicRisk panel uses inline JSX (not a private method) for the banner
+    assert.match(riskSrc, /t\('components\.strategicRisk\.sourceStates\.degraded'\)/);
+    assert.match(riskSrc, /t\('components\.strategicRisk\.sourceStates\.stale'\)/);
+    assert.match(riskSrc, /t\('components\.strategicRisk\.cachedCiiStatus'/);
+    assert.match(riskSrc, /\.filter\(Boolean\)\.join\(' · '\)/);
+    assert.doesNotMatch(riskSrc, /'degraded'(?!\s*\?|\s*:)/);
 
     assert.match(enLocaleSrc, /"sourceStates": \{\n        "degraded": "degraded",\n        "stale": "stale"\n      \}/);
     assert.match(enLocaleSrc, /"cachedCiiStatus": "Cached CII \{\{states\}\}"/);
@@ -590,7 +602,8 @@ describe('frontend CII source of truth', () => {
     const mapSrc = readSrc('src/components/Map.ts');
     const deckSrc = readSrc('src/components/DeckGLMap.ts');
     const searchSrc = readSrc('src/app/search-manager.ts');
-    const insightsSrc = readSrc('src/components/InsightsPanel.ts');
+    // React migration: InsightsPanel.ts → InsightsPanel.tsx
+    const insightsSrc = readSrc('src/components/panels/InsightsPanel.tsx');
 
     assert.doesNotMatch(storySrc, /hasIntelligenceSignalsLoaded/);
     assert.match(storySrc, /const normalizedCountryCode = normalizeCiiCountryCode\(countryCode\);/);
@@ -611,7 +624,8 @@ describe('frontend CII source of truth', () => {
     assert.match(searchSrc, /const scores = cachedScores\.length > 0[\s\S]*\? cachedScores[\s\S]*: panelScores;/);
     assert.match(insightsSrc, /const getAuthoritativeCountryScore = getCachedCountryScoreValue;/);
     assert.match(insightsSrc, /focalFnServer, getAuthoritativeCountryScore, isFocalReadyServer/);
-    assert.match(insightsSrc, /this\.selectTopStories\(clusters, 8, focalFn, getAuthoritativeCountryScore, isFocalReady\)/);
+    // React migration: no `this.` prefix — selectTopStories is a module-level function
+    assert.match(insightsSrc, /selectTopStories\(clusters, 8, focalFn, getAuthoritativeCountryScore, isFocalReady\)/);
 
     for (const [path, source] of [
       ['story-data.ts', storySrc],
@@ -621,7 +635,7 @@ describe('frontend CII source of truth', () => {
       ['Map.ts', mapSrc],
       ['DeckGLMap.ts', deckSrc],
       ['search-manager.ts', searchSrc],
-      ['InsightsPanel.ts', insightsSrc],
+      ['InsightsPanel.tsx', insightsSrc],
     ] as const) {
       assert.doesNotMatch(source, /\b(?:calculateCII|getCountryScore)\s*\(/, `${path} must not compute local CII`);
     }
@@ -629,7 +643,7 @@ describe('frontend CII source of truth', () => {
 
   it('aligns CII badge colors and StrategicRiskPanel display bands to source contracts', () => {
     const modalPath = resolve(root, 'src/components/CountryIntelModal.ts');
-    const strategicRiskSrc = readSrc('src/components/StrategicRiskPanel.ts');
+    const strategicRiskSrc = readSrc('src/components/panels/StrategicRiskPanel.tsx');
     const serverRiskSrc = readSrc('server/worldmonitor/intelligence/v1/get-risk-scores.ts');
     const methodologySrc = readSrc('docs/methodology/cii-risk-scores.mdx');
     const mainCss = readSrc('src/styles/main.css');

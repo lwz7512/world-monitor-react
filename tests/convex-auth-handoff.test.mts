@@ -784,7 +784,8 @@ describe('App account-switch controller', () => {
   });
 
   it('wires App through the tested account-handoff controller', async () => {
-    const app = await readFile(new URL('../src/App.ts', import.meta.url), 'utf8');
+    // React migration: account-handoff wiring moved from App.ts to src/hooks/useAuthLifecycle.ts
+    const app = await readFile(new URL('../src/hooks/useAuthLifecycle.ts', import.meta.url), 'utf8');
     const branch = app.match(
       /if \(userId !== null && userId !== _prevUserId\) \{[\s\S]*?\/\/ Claim any anonymous purchase/,
     )?.[0];

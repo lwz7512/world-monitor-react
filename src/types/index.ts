@@ -72,16 +72,27 @@ export interface Feed {
   type?: string;
   region?: string;
   propagandaRisk?: PropagandaRisk;
-  stateAffiliated?: string;  // e.g., "Russia", "China", "Iran"
-  lang?: string;             // ISO 2-letter code for filtering
+  stateAffiliated?: string; // e.g., "Russia", "China", "Iran"
+  lang?: string; // ISO 2-letter code for filtering
 }
 
 export type ThreatLevel = 'critical' | 'high' | 'medium' | 'low' | 'info';
 
 export type EventCategory =
-  | 'conflict' | 'protest' | 'disaster' | 'diplomatic' | 'economic'
-  | 'terrorism' | 'cyber' | 'health' | 'environmental' | 'military'
-  | 'crime' | 'infrastructure' | 'tech' | 'general';
+  | 'conflict'
+  | 'protest'
+  | 'disaster'
+  | 'diplomatic'
+  | 'economic'
+  | 'terrorism'
+  | 'cyber'
+  | 'health'
+  | 'environmental'
+  | 'military'
+  | 'crime'
+  | 'infrastructure'
+  | 'tech'
+  | 'general';
 
 export interface ThreatClassification {
   level: ThreatLevel;
@@ -93,12 +104,11 @@ export interface ThreatClassification {
 export type StoryPhase = 'breaking' | 'developing' | 'sustained' | 'fading';
 
 export interface StoryMeta {
-  firstSeen: number;        // epoch ms
+  firstSeen: number; // epoch ms
   mentionCount: number;
   sourceCount: number;
   phase: StoryPhase;
 }
-
 
 export interface NewsItem {
   source: string;
@@ -264,7 +274,7 @@ export interface Hotspot {
   lon: number;
   keywords: string[];
   subtext?: string;
-  location?: string;  // Human-readable location (e.g., "Sahel Region, West Africa")
+  location?: string; // Human-readable location (e.g., "Sahel Region, West Africa")
   agencies?: string[];
   level?: 'low' | 'elevated' | 'high';
   description?: string;
@@ -370,7 +380,6 @@ export interface ConflictZone {
   totalFatalities?: string;
 }
 
-
 // UCDP Georeferenced Events
 export type UcdpEventType = 'state-based' | 'non-state' | 'one-sided';
 
@@ -410,17 +419,17 @@ export interface PopulationExposure {
 
 // Military base operator types
 export type MilitaryBaseType =
-  | 'us-nato'      // United States and NATO allies
-  | 'china'        // People's Republic of China
-  | 'russia'       // Russian Federation
-  | 'uk'           // United Kingdom (non-US NATO)
-  | 'france'       // France (non-US NATO)
-  | 'india'        // India
-  | 'italy'        // Italy
-  | 'uae'          // United Arab Emirates
-  | 'turkey'       // Turkey
-  | 'japan'        // Japan Self-Defense Forces
-  | 'other';       // Other nations
+  | 'us-nato' // United States and NATO allies
+  | 'china' // People's Republic of China
+  | 'russia' // Russian Federation
+  | 'uk' // United Kingdom (non-US NATO)
+  | 'france' // France (non-US NATO)
+  | 'india' // India
+  | 'italy' // Italy
+  | 'uae' // United Arab Emirates
+  | 'turkey' // Turkey
+  | 'japan' // Japan Self-Defense Forces
+  | 'other'; // Other nations
 
 export interface MilitaryBase {
   id: string;
@@ -429,10 +438,10 @@ export interface MilitaryBase {
   lon: number;
   type: MilitaryBaseType;
   description?: string;
-  country?: string;           // Host country
-  arm?: string;               // Armed forces branch (Navy, Air Force, Army, etc.)
+  country?: string; // Host country
+  arm?: string; // Armed forces branch (Navy, Air Force, Army, etc.)
   status?: 'active' | 'planned' | 'controversial' | 'closed';
-  source?: string;            // Reference URL
+  source?: string; // Reference URL
 }
 
 export interface MilitaryBaseEnriched extends MilitaryBase {
@@ -446,7 +455,7 @@ export interface MilitaryBaseEnriched extends MilitaryBase {
 }
 
 export interface CableLandingPoint {
-  country: string;       // ISO code
+  country: string; // ISO code
   countryName: string;
   city?: string;
   lat: number;
@@ -454,9 +463,9 @@ export interface CableLandingPoint {
 }
 
 export interface CountryCapacity {
-  country: string;       // ISO code
+  country: string; // ISO code
   capacityShare: number; // 0-1, what % of country's int'l capacity
-  isRedundant: boolean;  // Has alternative routes
+  isRedundant: boolean; // Has alternative routes
 }
 
 export interface UnderseaCable {
@@ -468,7 +477,7 @@ export interface UnderseaCable {
   landingPoints?: CableLandingPoint[];
   countriesServed?: CountryCapacity[];
   capacityTbps?: number;
-  rfsYear?: number;      // Ready for service year
+  rfsYear?: number; // Ready for service year
   owners?: string[];
 }
 
@@ -540,14 +549,14 @@ export interface CyberRegion {
 
 // Nuclear facility types
 export type NuclearFacilityType =
-  | 'plant'        // Power reactors
-  | 'enrichment'   // Uranium enrichment
+  | 'plant' // Power reactors
+  | 'enrichment' // Uranium enrichment
   | 'reprocessing' // Plutonium reprocessing
-  | 'weapons'      // Weapons design/assembly
-  | 'ssbn'         // Submarine base (nuclear deterrent)
-  | 'test-site'    // Nuclear test site
-  | 'icbm'         // ICBM silo fields
-  | 'research';    // Research reactors
+  | 'weapons' // Weapons design/assembly
+  | 'ssbn' // Submarine base (nuclear deterrent)
+  | 'test-site' // Nuclear test site
+  | 'icbm' // ICBM silo fields
+  | 'research'; // Research reactors
 
 export interface NuclearFacility {
   id: string;
@@ -556,7 +565,7 @@ export interface NuclearFacility {
   lon: number;
   type: NuclearFacilityType;
   status: 'active' | 'contested' | 'inactive' | 'decommissioned' | 'construction';
-  operator?: string;  // Operating country
+  operator?: string; // Operating country
   operationalSince?: string;
   treaties?: string[];
   iaeaStatus?: string;
@@ -576,9 +585,9 @@ export type PipelineType = 'oil' | 'gas' | 'products';
 export type PipelineStatus = 'operating' | 'construction';
 
 export interface PipelineTerminal {
-  country: string;       // ISO code
-  name?: string;         // Terminal/field name
-  portId?: string;       // Link to port if applicable
+  country: string; // ISO code
+  name?: string; // Terminal/field name
+  portId?: string; // Link to port if applicable
   lat?: number;
   lon?: number;
 }
@@ -588,18 +597,18 @@ export interface Pipeline {
   name: string;
   type: PipelineType;
   status: PipelineStatus;
-  points: [number, number][];  // [lon, lat] pairs
-  capacity?: string;           // e.g., "1.2 million bpd"
-  length?: string;             // e.g., "1,768 km"
+  points: [number, number][]; // [lon, lat] pairs
+  capacity?: string; // e.g., "1.2 million bpd"
+  length?: string; // e.g., "1,768 km"
   operator?: string;
   countries?: string[];
   // Enhanced fields for cascade analysis
   origin?: PipelineTerminal;
   destination?: PipelineTerminal;
-  transitCountries?: string[];   // ISO codes
-  capacityMbpd?: number;         // Million barrels per day (oil)
-  capacityBcmY?: number;         // Billion cubic meters/year (gas)
-  alternatives?: string[];       // Pipeline IDs that could substitute
+  transitCountries?: string[]; // ISO codes
+  capacityMbpd?: number; // Million barrels per day (oil)
+  capacityBcmY?: number; // Billion cubic meters/year (gas)
+  alternatives?: string[]; // Pipeline IDs that could substitute
 }
 
 export interface Earthquake {
@@ -851,59 +860,59 @@ export interface MonitoredAirport {
 
 // Military Flight Tracking Types
 export type MilitaryAircraftType =
-  | 'fighter'           // F-15, F-16, F-22, F-35, Su-27, etc.
-  | 'bomber'            // B-52, B-1, B-2, Tu-95, etc.
-  | 'transport'         // C-130, C-17, Il-76, A400M, etc.
-  | 'tanker'            // KC-135, KC-10, KC-46, etc.
-  | 'awacs'             // E-3, E-7, A-50, etc.
-  | 'reconnaissance'    // RC-135, U-2, EP-3, etc.
-  | 'helicopter'        // UH-60, CH-47, Mi-8, etc.
-  | 'drone'             // RQ-4, MQ-9, etc.
-  | 'patrol'            // P-8, P-3, etc.
-  | 'special_ops'       // MC-130, CV-22, etc.
-  | 'vip'               // Government/executive transport
+  | 'fighter' // F-15, F-16, F-22, F-35, Su-27, etc.
+  | 'bomber' // B-52, B-1, B-2, Tu-95, etc.
+  | 'transport' // C-130, C-17, Il-76, A400M, etc.
+  | 'tanker' // KC-135, KC-10, KC-46, etc.
+  | 'awacs' // E-3, E-7, A-50, etc.
+  | 'reconnaissance' // RC-135, U-2, EP-3, etc.
+  | 'helicopter' // UH-60, CH-47, Mi-8, etc.
+  | 'drone' // RQ-4, MQ-9, etc.
+  | 'patrol' // P-8, P-3, etc.
+  | 'special_ops' // MC-130, CV-22, etc.
+  | 'vip' // Government/executive transport
   | 'unknown';
 
 export type MilitaryOperator =
-  | 'usaf'              // US Air Force
-  | 'usn'               // US Navy
-  | 'usmc'              // US Marine Corps
-  | 'usa'               // US Army
-  | 'raf'               // Royal Air Force (UK)
-  | 'rn'                // Royal Navy (UK)
-  | 'faf'               // French Air Force
-  | 'gaf'               // German Air Force
-  | 'plaaf'             // PLA Air Force (China)
-  | 'plan'              // PLA Navy (China)
-  | 'vks'               // Russian Aerospace Forces
-  | 'iaf'               // Israeli Air Force
-  | 'nato'              // NATO joint operations
+  | 'usaf' // US Air Force
+  | 'usn' // US Navy
+  | 'usmc' // US Marine Corps
+  | 'usa' // US Army
+  | 'raf' // Royal Air Force (UK)
+  | 'rn' // Royal Navy (UK)
+  | 'faf' // French Air Force
+  | 'gaf' // German Air Force
+  | 'plaaf' // PLA Air Force (China)
+  | 'plan' // PLA Navy (China)
+  | 'vks' // Russian Aerospace Forces
+  | 'iaf' // Israeli Air Force
+  | 'nato' // NATO joint operations
   | 'other';
 
 export interface MilitaryFlight {
   id: string;
   callsign: string;
-  hexCode: string;             // ICAO 24-bit address
+  hexCode: string; // ICAO 24-bit address
   registration?: string;
   aircraftType: MilitaryAircraftType;
-  aircraftModel?: string;      // E.g., "F-35A", "C-17A"
+  aircraftModel?: string; // E.g., "F-35A", "C-17A"
   operator: MilitaryOperator;
   operatorCountry: string;
   lat: number;
   lon: number;
-  altitude: number;            // feet
-  heading: number;             // degrees
-  speed: number;               // knots
-  verticalRate?: number;       // feet/min
+  altitude: number; // feet
+  heading: number; // degrees
+  speed: number; // knots
+  verticalRate?: number; // feet/min
   onGround: boolean;
-  squawk?: string;             // Transponder code
-  origin?: string;             // ICAO airport code
-  destination?: string;        // ICAO airport code
+  squawk?: string; // Transponder code
+  origin?: string; // ICAO airport code
+  destination?: string; // ICAO airport code
   lastSeen: Date;
   firstSeen?: Date;
-  track?: [number, number][];  // Historical positions for trail
+  track?: [number, number][]; // Historical positions for trail
   confidence: 'high' | 'medium' | 'low';
-  isInteresting?: boolean;     // Flagged for unusual activity
+  isInteresting?: boolean; // Flagged for unusual activity
   note?: string;
   // Wingbits enrichment data
   enriched?: {
@@ -930,16 +939,16 @@ export interface MilitaryFlightCluster {
 
 // Military/Special Vessel Tracking Types
 export type MilitaryVesselType =
-  | 'carrier'           // Aircraft carrier
-  | 'destroyer'         // Destroyer/Cruiser
-  | 'frigate'           // Frigate/Corvette
-  | 'submarine'         // Submarine (when surfaced/detected)
-  | 'amphibious'        // LHD, LPD, LST
-  | 'patrol'            // Coast guard, patrol boats
-  | 'auxiliary'         // Supply ships, tankers
-  | 'research'          // Intelligence gathering, research vessels
-  | 'icebreaker'        // Military icebreakers
-  | 'special'           // Special mission vessels
+  | 'carrier' // Aircraft carrier
+  | 'destroyer' // Destroyer/Cruiser
+  | 'frigate' // Frigate/Corvette
+  | 'submarine' // Submarine (when surfaced/detected)
+  | 'amphibious' // LHD, LPD, LST
+  | 'patrol' // Coast guard, patrol boats
+  | 'auxiliary' // Supply ships, tankers
+  | 'research' // Intelligence gathering, research vessels
+  | 'icebreaker' // Military icebreakers
+  | 'special' // Special mission vessels
   | 'unknown';
 
 export interface MilitaryVessel {
@@ -947,22 +956,22 @@ export interface MilitaryVessel {
   mmsi: string;
   name: string;
   vesselType: MilitaryVesselType;
-  aisShipType?: string;        // Human-readable AIS ship type (Cargo, Tanker, etc.)
-  hullNumber?: string;         // E.g., "DDG-51", "CVN-78"
+  aisShipType?: string; // Human-readable AIS ship type (Cargo, Tanker, etc.)
+  hullNumber?: string; // E.g., "DDG-51", "CVN-78"
   operator: MilitaryOperator | 'other';
   operatorCountry: string;
   lat: number;
   lon: number;
   heading: number;
-  speed: number;               // knots
+  speed: number; // knots
   course?: number;
   destination?: string;
   lastAisUpdate: Date;
-  aisGapMinutes?: number;      // Time since last AIS signal
-  isDark?: boolean;            // AIS disabled/suspicious
-  nearChokepoint?: string;     // If near strategic waterway
-  nearBase?: string;           // If near known naval base
-  track?: [number, number][];  // Historical positions
+  aisGapMinutes?: number; // Time since last AIS signal
+  isDark?: boolean; // AIS disabled/suspicious
+  nearChokepoint?: string; // If near strategic waterway
+  nearBase?: string; // If near known naval base
+  track?: [number, number][]; // Historical positions
   confidence: 'high' | 'medium' | 'low';
   isInteresting?: boolean;
   note?: string;
@@ -1098,10 +1107,22 @@ export type NaturalEventCategory =
   | 'waterColor'
   | 'manmade';
 
-export const NATURAL_EVENT_CATEGORIES: ReadonlySet<NaturalEventCategory> = new Set<NaturalEventCategory>([
-  'severeStorms', 'wildfires', 'volcanoes', 'earthquakes', 'floods', 'landslides',
-  'drought', 'dustHaze', 'snow', 'tempExtremes', 'seaLakeIce', 'waterColor', 'manmade',
-]);
+export const NATURAL_EVENT_CATEGORIES: ReadonlySet<NaturalEventCategory> =
+  new Set<NaturalEventCategory>([
+    'severeStorms',
+    'wildfires',
+    'volcanoes',
+    'earthquakes',
+    'floods',
+    'landslides',
+    'drought',
+    'dustHaze',
+    'snow',
+    'tempExtremes',
+    'seaLakeIce',
+    'waterColor',
+    'manmade',
+  ]);
 
 export interface ForecastPoint {
   lat: number;
@@ -1168,7 +1189,8 @@ export interface NaturalEvent {
 }
 
 // Infrastructure Cascade Types
-export type InfrastructureNodeType = 'cable' | 'pipeline' | 'port' | 'chokepoint' | 'country' | 'route';
+export type InfrastructureNodeType =
+  'cable' | 'pipeline' | 'port' | 'chokepoint' | 'country' | 'route';
 
 export interface InfrastructureNode {
   id: string;
@@ -1179,23 +1201,23 @@ export interface InfrastructureNode {
 }
 
 export type DependencyType =
-  | 'serves'              // Infrastructure serves country
-  | 'terminates_at'       // Pipeline terminates at port
-  | 'transits_through'    // Route transits chokepoint
-  | 'lands_at'            // Cable lands at country
-  | 'depends_on'          // Port depends on pipeline
-  | 'shares_risk'         // Assets share vulnerability
-  | 'alternative_to'      // Provides redundancy
-  | 'trade_route'         // Port enables trade route
-  | 'controls_access'     // Chokepoint controls access
-  | 'trade_dependency';   // Country depends on trade route
+  | 'serves' // Infrastructure serves country
+  | 'terminates_at' // Pipeline terminates at port
+  | 'transits_through' // Route transits chokepoint
+  | 'lands_at' // Cable lands at country
+  | 'depends_on' // Port depends on pipeline
+  | 'shares_risk' // Assets share vulnerability
+  | 'alternative_to' // Provides redundancy
+  | 'trade_route' // Port enables trade route
+  | 'controls_access' // Chokepoint controls access
+  | 'trade_dependency'; // Country depends on trade route
 
 export interface DependencyEdge {
-  from: string;           // Node ID
-  to: string;             // Node ID
+  from: string; // Node ID
+  to: string; // Node ID
   type: DependencyType;
-  strength: number;       // 0-1 criticality
-  redundancy?: number;    // 0-1 how replaceable
+  strength: number; // 0-1 criticality
+  redundancy?: number; // 0-1 how replaceable
   metadata?: {
     capacityShare?: number;
     alternativeRoutes?: number;
@@ -1427,12 +1449,7 @@ export type GulfInvestmentSector =
   | 'manufacturing';
 
 export type GulfInvestmentStatus =
-  | 'operational'
-  | 'under-construction'
-  | 'announced'
-  | 'rumoured'
-  | 'cancelled'
-  | 'divested';
+  'operational' | 'under-construction' | 'announced' | 'rumoured' | 'cancelled' | 'divested';
 
 export type GulfInvestingEntity =
   | 'DP World'
@@ -1511,7 +1528,18 @@ export interface MapTechEventCluster {
   lat: number;
   lon: number;
   count: number;
-  items: Array<{ id: string; title: string; location: string; lat: number; lng: number; country: string; startDate: string; endDate: string; url: string | null; daysUntil: number }>;
+  items: Array<{
+    id: string;
+    title: string;
+    location: string;
+    lat: number;
+    lng: number;
+    country: string;
+    startDate: string;
+    endDate: string;
+    url: string | null;
+    daysUntil: number;
+  }>;
   location: string;
   country: string;
   soonestDaysUntil: number;
@@ -1564,4 +1592,13 @@ export interface CountryBriefSignals {
   thermalEscalations: number;
   sanctionsDesignations: number;
   sanctionsNewDesignations: number;
+}
+
+export interface SectorValuation {
+  trailingPE: number | null;
+  forwardPE: number | null;
+  beta: number | null;
+  ytdReturn: number | null;
+  threeYearReturn: number | null;
+  fiveYearReturn: number | null;
 }

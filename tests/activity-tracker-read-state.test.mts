@@ -191,8 +191,9 @@ describe('computeNewSinceVisit (pure partition, #4926 review)', () => {
 });
 
 describe('NewsPanel first-render wiring (source-textual)', () => {
+  // React migration: logic moved to NewsPanelContent.tsx
   const src = readFileSync(
-    resolve(dirname(fileURLToPath(import.meta.url)), '../src/components/NewsPanel.ts'),
+    resolve(dirname(fileURLToPath(import.meta.url)), '../src/components/panels/NewsPanelContent.tsx'),
     'utf-8',
   );
 
@@ -204,7 +205,8 @@ describe('NewsPanel first-render wiring (source-textual)', () => {
   });
 
   it('away-item NEW ribbons are not gated on the 2-minute arrival window', () => {
-    assert.match(src, /newSinceAwayIds\.has\(cluster\.id\)/, 'ribbon persists for away items until seen');
+    // React: stored in a ref; check the .current.has() access
+    assert.match(src, /newSinceAwayIdsRef\.current\.has\(cluster\.id\)/, 'ribbon persists for away items until seen');
   });
 
   it('read-state key is cloud-synced', () => {

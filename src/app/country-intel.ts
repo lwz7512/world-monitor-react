@@ -44,7 +44,7 @@ import { isHeadlineMemoryEnabled } from '@/services/ai-flow-settings';
 import { t, getCurrentLanguage } from '@/services/i18n';
 import { trackCountrySelected, trackCountryBriefOpened } from '@/services/analytics';
 import { toApiUrl } from '@/services/runtime';
-import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
+import { getPostures } from '@/services/strategic-posture-store';
 import type { NewsItem } from '@/types';
 import {
   buildBriefSourceContextLines,
@@ -229,8 +229,7 @@ export class CountryIntelManager implements AppModule {
           signalTypes: [...cluster.signalTypes],
           regionalDescriptions: regional.map(r => r.description),
         } : null;
-        const posturePanel = this.ctx.panels['strategic-posture'] as StrategicPosturePanel | undefined;
-        const postures = posturePanel?.getPostures() || [];
+        const postures = getPostures();
         const data = collectStoryData(code, name, this.ctx.latestClusters, postures, this.ctx.latestPredictions, signals, convergence);
         const { renderStoryToCanvas } = await import('@/services/story-renderer');
         const canvas = await renderStoryToCanvas(data);
@@ -1570,8 +1569,7 @@ export class CountryIntelManager implements AppModule {
       this.showToast('Data still loading — try again in a moment');
       return;
     }
-    const posturePanel = this.ctx.panels['strategic-posture'] as StrategicPosturePanel | undefined;
-    const postures = posturePanel?.getPostures() || [];
+    const postures = getPostures();
     const aggregator = await getSignalAggregator();
     const signals = await this.getCountrySignals(code, name);
     const cluster = aggregator.getCountryClusters().find(c => c.country === code);

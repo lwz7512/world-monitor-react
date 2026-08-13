@@ -31,7 +31,7 @@ const css = read('src', 'styles', 'main.css');
 const tabBar = read('src', 'components', 'PanelTabBar.ts');
 const pizzint = read('src', 'components', 'PizzIntIndicator.ts');
 const panelLayout = read('src', 'app', 'panel-layout.ts');
-const cascadePanel = read('src', 'components', 'CascadePanel.ts');
+const cascadePanel = read('src', 'components', 'panels', 'CascadePanel.tsx');
 const deckglMap = read('src', 'components', 'DeckGLMap.ts');
 
 // --- WCAG contrast helpers -------------------------------------------------
@@ -107,11 +107,13 @@ describe('select-name — #regionSelect is labelled', () => {
   });
 
   it('cascade-select carries an aria-label', () => {
-    const line = cascadePanel
-      .split('\n')
-      .find((l) => l.includes('class="cascade-select"'));
-    assert.ok(line, '.cascade-select must exist');
-    assert.match(line, /aria-label=/, '.cascade-select must have an aria-label');
+    // In JSX the className and aria-label may be on adjacent lines; search a
+    // 3-line window around the className attribute instead of a single line.
+    const lines = cascadePanel.split('\n');
+    const idx = lines.findIndex((l) => l.includes('className="cascade-select"'));
+    assert.ok(idx >= 0, '.cascade-select must exist');
+    const window = lines.slice(Math.max(0, idx - 1), idx + 4).join('\n');
+    assert.match(window, /aria-label=/, '.cascade-select must have an aria-label');
   });
 });
 

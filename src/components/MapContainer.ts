@@ -57,6 +57,7 @@ import type { ScenarioVisualState, ScenarioResult } from '@/config/scenario-temp
 import { getAuthState } from '@/services/auth-state';
 import { hasPremiumAccess } from '@/services/panel-gating';
 import { trackGateHit } from '@/services/analytics';
+import { showScenario, hideScenario } from '@/services/supply-chain-scenario-store';
 
 export type { ScenarioVisualState, ScenarioResult };
 
@@ -135,7 +136,6 @@ export class MapContainer {
   private deckGLMap: DeckGLMap | null = null;
   private svgMap: MapComponent | null = null;
   private globeMap: GlobeMap | null = null;
-  private supplyChainPanel: import('@/components/SupplyChainPanel').SupplyChainPanel | null = null;
   private initialState: MapContainerState;
   private useDeckGL: boolean;
   private useGlobe: boolean;
@@ -1462,10 +1462,6 @@ export class MapContainer {
 
   // ─── Scenario Engine ─────────────────────────────────────────────────────────
 
-  public setSupplyChainPanel(panel: import('@/components/SupplyChainPanel').SupplyChainPanel): void {
-    this.supplyChainPanel = panel;
-  }
-
   /**
    * Activate a scenario across all active renderers.
    * PRO-gated — free users trigger `trackGateHit('scenario-engine')` only.
@@ -1491,7 +1487,7 @@ export class MapContainer {
     };
     this.cachedScenarioState = state;
     this.applyScenarioState(state);
-    this.supplyChainPanel?.showScenarioSummary(scenarioId, result);
+    showScenario({ scenarioId, result });
   }
 
   /**
@@ -1500,7 +1496,7 @@ export class MapContainer {
   public deactivateScenario(): void {
     this.cachedScenarioState = null;
     this.applyScenarioState(null);
-    this.supplyChainPanel?.hideScenarioSummary();
+    hideScenario();
   }
 
   // Utility methods

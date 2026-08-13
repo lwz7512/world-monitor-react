@@ -123,7 +123,7 @@ describe('China corporate disclosure production registration (#5577)', () => {
     assert.match(loader, /getHydratedData\('chinaCorporateDisclosures'\)/);
     assert.match(
       loader,
-      /if \(hydratedDisclosures !== undefined\) \{[\s\S]*?renderDisclosures\(hydratedDisclosures\)/,
+      /if \(hydratedDisclosures !== undefined\) \{[\s\S]*?setMarketsDisclosures\(hydratedDisclosures\)/,
       'consume-once bootstrap misses must preserve the last rendered disclosure snapshot',
     );
     assert.match(panel, /renderDisclosures/);

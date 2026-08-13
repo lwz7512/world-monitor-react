@@ -362,8 +362,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const readSource = (rel: string): string => readFileSync(resolve(root, rel), 'utf8');
 
 const WIRED_PANELS = [
-  'src/components/LatestBriefPanel.ts',
-  'src/components/ChatAnalystPanel.ts',
+  'src/components/panels/LatestBriefPanel.tsx',
+  'src/components/panels/ChatAnalystPanel.tsx',
 ];
 
 describe('premium panels route their denials through the classifier', () => {
@@ -406,16 +406,16 @@ describe('premium panels route their denials through the classifier', () => {
    * reintroduces the bug.
    */
   it('LatestBriefPanel routes its denials through routeDenial', () => {
-    assert.match(readSource('src/components/LatestBriefPanel.ts'), /routeDenial\(/);
+    assert.match(readSource('src/components/panels/LatestBriefPanel.tsx'), /routeDenial\(/);
   });
 
-  it('LatestBriefPanel has exactly two renderUpgradeRequired call sites', () => {
-    const source = readSource('src/components/LatestBriefPanel.ts');
-    const calls = [...source.matchAll(/this\.renderUpgradeRequired\(\)/g)];
+  it('LatestBriefPanel has exactly two upgrade-required state transitions', () => {
+    const source = readSource('src/components/panels/LatestBriefPanel.tsx');
+    const calls = [...source.matchAll(/setState\(\{\s*type:\s*'upgrade-required'\s*\}\)/g)];
     assert.equal(
       calls.length,
       2,
-      'expected exactly two upsell call sites — the pre-fetch affirmative-denial '
+      'expected exactly two upgrade-required state transitions — the pre-fetch affirmative-denial '
       + "gate and routeDenial's 'upgrade' case. A third is how #5608 comes back.",
     );
   });
@@ -427,7 +427,7 @@ describe('premium panels route their denials through the classifier', () => {
     // now pinned by EXECUTION in tests/analyst-denial.test.mts rather than by
     // this regex, which is strictly stronger: a swapped branch fails there and
     // would not have failed here.
-    const panel = readSource('src/components/ChatAnalystPanel.ts');
+    const panel = readSource('src/components/panels/ChatAnalystPanel.tsx');
     assert.equal(
       [...panel.matchAll(/'Pro subscription required\.'/g)].length,
       0,
@@ -452,8 +452,8 @@ describe('premium panels route their denials through the classifier', () => {
 
   it('reports the only three client-side entitlement-desync decision sites', () => {
     const expectedCalls = new Map([
-      ['src/components/LatestBriefPanel.ts', "if (verdict === 'entitlement_desync') reportEntitlementDesync('latest-brief');"],
-      ['src/components/ChatAnalystPanel.ts', "if (verdict === 'entitlement_desync') reportEntitlementDesync('chat-analyst');"],
+      ['src/components/panels/LatestBriefPanel.tsx', "if (verdict === 'entitlement_desync') reportEntitlementDesync('latest-brief');"],
+      ['src/components/panels/ChatAnalystPanel.tsx', "if (verdict === 'entitlement_desync') reportEntitlementDesync('chat-analyst');"],
       ['src/components/WidgetChatModal.ts', "if (verdict === 'entitlement_desync') reportEntitlementDesync('widget-chat');"],
     ]);
     for (const [rel, expectedCall] of expectedCalls) {
@@ -490,7 +490,7 @@ describe('premium panels route their denials through the classifier', () => {
   });
 
   it('binds Chat Analyst denial telemetry to the account that made the request', () => {
-    const source = readSource('src/components/ChatAnalystPanel.ts');
+    const source = readSource('src/components/panels/ChatAnalystPanel.tsx');
     assert.match(
       source,
       /const requestAuthState = getAuthState\(\);[\s\S]*?const requestUserId = requestAuthState\.user\?\.id \?\? null;[\s\S]*?const requestBelief = readClientEntitlementBelief\(requestAuthState\);/,

@@ -1,0 +1,150 @@
+import { usePanelData } from '@/hooks/usePanelData';
+import { t } from '@/services/i18n';
+import { escapeHtml } from '@/utils/sanitize';
+import { createLazyClient, getRpcBaseUrl, rpcFetch } from '@/services/rpc-client';
+import { EconomicServiceClient } from '@/services/generated-rpc-clients';
+import type { GetFaoFoodPriceIndexResponse, FaoFoodPricePoint } from '@/generated/client/worldmonitor/economic/v1/service_client';
+import { PanelShell } from '@/components/PanelShell';
+
+const getClient = createLazyClient(() => new EconomicServiceClient(getRpcBaseUrl(), { fetch: rpcFetch }));
+
+const SVG_W = 480;
+const SVG_H = 140;
+const ML = 36;
+const MR = 12;
+const MT = 8;
+const MB = 20;
+const CW = SVG_W - ML - MR;
+const CH = SVG_H - MT - MB;
+
+const SERIES: { key: keyof FaoFoodPricePoint; color: string }[] = [
+  { key: 'ffpi',    color: '#f5a623' },
+  { key: 'cereals', color: '#7ed321' },
+  { key: 'meat',    color: '#e86c6c' },
+  { key: 'dairy',   color: '#74c8e8' },
+  { key: 'oils',    color: '#b57ce8' },
+  { key: 'sugar',   color: '#f0c36a' },
+];
+
+function xPos(i: number, total: number): number {
+  if (total <= 1) return ML + CW / 2;
+  return ML + (i / (total - 1)) * CW;
+}
+
+function yPos(v: number, yMin: number, yMax: number): number {
+  return MT + CH - ((v - yMin) / (yMax - yMin || 1)) * CH;
+}
+
+function buildChart(points: FaoFoodPricePoint[]): string {
+  if (!points.length) return '';
+  const vals: number[] = [];
+  for (const p of points) {
+    for (const s of SERIES) {
+      const v = p[s.key] as number;
+      if (Number.isFinite(v) && v > 0) vals.push(v);
+    }
+  }
+  const yMin = Math.floor(Math.min(...vals) * 0.96);
+  const yMax = Math.ceil(Math.max(...vals) * 1.02);
+
+  const yAxis = [0, 1, 2, 3].map(i => {
+    const v = yMin + ((yMax - yMin) / 3) * i;
+    const y = yPos(v, yMin, yMax);
+    return `<line x1="${ML}" y1="${y.toFixed(1)}" x2="${SVG_W - MR}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+      <text x="${ML - 3}" y="${y.toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.35)" font-size="8" dominant-baseline="middle">${v.toFixed(0)}</text>`;
+  }).join('');
+
+  const xAxis = points.map((p, i) => {
+    if (i % 3 !== 0 && i !== points.length - 1) return '';
+    return `<text x="${xPos(i, points.length).toFixed(1)}" y="${SVG_H - MB + 12}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="7">${escapeHtml(p.date)}</text>`;
+  }).join('');
+
+  const lines = SERIES.map(s => {
+    const coords = points.map((p, i) => {
+      const v = p[s.key] as number;
+      if (!Number.isFinite(v) || v <= 0) return null;
+      return `${xPos(i, points.length).toFixed(1)},${yPos(v, yMin, yMax).toFixed(1)}`;
+    }).filter(Boolean).join(' ');
+    if (!coords) return '';
+    return `<polyline points="${coords}" fill="none" stroke="${s.color}" stroke-width="${s.key === 'ffpi' ? 2 : 1.2}" opacity="${s.key === 'ffpi' ? 1 : 0.7}"/>`;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${SVG_W} ${SVG_H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">${yAxis}${xAxis}${lines}</svg>`;
+}
+
+function buildHtml(data: GetFaoFoodPriceIndexResponse): string {
+  const latest = data.points[data.points.length - 1];
+  const momSign = data.momPct >= 0 ? '+' : '';
+  const yoySign = data.yoyPct >= 0 ? '+' : '';
+  const momCls = data.momPct >= 0 ? 'fao-up' : 'fao-down';
+  const yoyCls = data.yoyPct >= 0 ? 'fao-up' : 'fao-down';
+
+  const headline = `<div class="fao-headline">
+    <div class="fao-headline-primary">
+      <span class="fao-index-value">${data.currentFfpi.toFixed(1)}</span>
+      <span class="fao-index-label">${escapeHtml(t('components.faoFoodPriceIndex.indexLabel'))}</span>
+    </div>
+    <div class="fao-headline-changes">
+      <span class="fao-change ${momCls}">${momSign}${data.momPct.toFixed(1)}% ${escapeHtml(t('components.faoFoodPriceIndex.mom'))}</span>
+      <span class="fao-change ${yoyCls}">${yoySign}${data.yoyPct.toFixed(1)}% ${escapeHtml(t('components.faoFoodPriceIndex.yoy'))}</span>
+    </div>
+    <div class="fao-as-of">${escapeHtml(t('components.faoFoodPriceIndex.asOf'))} ${escapeHtml(latest?.date ?? '')}</div>
+  </div>`;
+
+  const legend = `<div class="fao-legend">${SERIES.map(s =>
+    `<span class="fao-legend-item"><span class="fao-legend-dot" style="background:${s.color}"></span>${escapeHtml(t(`components.faoFoodPriceIndex.${String(s.key)}`))}</span>`
+  ).join('')}</div>`;
+
+  const base = `<div class="fao-base-note">${escapeHtml(t('components.faoFoodPriceIndex.baseNote'))}</div>`;
+
+  return `<div class="fao-food-price-index-panel">${headline}${buildChart(data.points)}${legend}${base}</div>`;
+}
+
+async function fetcher(_signal: AbortSignal): Promise<GetFaoFoodPriceIndexResponse> {
+  const data = await getClient().getFaoFoodPriceIndex({});
+  if (!data.points?.length) throw new Error(t('common.failedMarketData') ?? 'No data');
+  return data;
+}
+
+export function FaoFoodPriceIndexPanelContent() {
+  const { data, loading, error, refetch } = usePanelData(fetcher, {
+    hydrationKey: 'faoFoodPriceIndex',
+    ttlMs: 24 * 60 * 60 * 1000,
+  });
+
+  if (loading) {
+    return (
+      <div className="panel-loading">
+        <div className="panel-loading-radar">
+          <div className="panel-radar-sweep" />
+          <div className="panel-radar-dot" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="panel-error-state">
+        <div className="panel-error-msg">{error ?? t('common.failedMarketData')}</div>
+        <button className="panel-error-retry" data-panel-retry="" onClick={refetch}>
+          {t('common.retry') ?? 'Retry'}
+        </button>
+      </div>
+    );
+  }
+
+  return <div dangerouslySetInnerHTML={{ __html: buildHtml(data) }} />;
+}
+
+export function FaoFoodPriceIndexPanel() {
+  return (
+    <PanelShell
+      id="fao-food-price-index"
+      title={t('panels.faoFoodPriceIndex')}
+      infoTooltip={t('components.faoFoodPriceIndex.infoTooltip')}
+    >
+      <FaoFoodPriceIndexPanelContent />
+    </PanelShell>
+  );
+}

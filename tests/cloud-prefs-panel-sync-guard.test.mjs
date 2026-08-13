@@ -43,7 +43,8 @@ describe('cloud prefs panel sync guardrails', () => {
 
   it('notifies the running tab when cloud prefs are applied', () => {
     const cloudSyncSrc = readSrc('src/utils/cloud-prefs-sync.ts');
-    const appSrc = readSrc('src/App.ts');
+    // React migration: App.ts class deleted; cloud prefs subscription moved to useCloudPrefsSync.ts
+    const appSrc = readSrc('src/hooks/useCloudPrefsSync.ts');
 
     assert.match(
       cloudSyncSrc,
@@ -133,7 +134,8 @@ describe('cloud prefs panel sync guardrails', () => {
   });
 
   it('reapplies delayed free-tier panel clamps to the mounted dashboard', () => {
-    const appSrc = readSrc('src/App.ts');
+    // React migration: App.ts class deleted; free-tier clamp logic moved to enforce-free-tier.ts
+    const appSrc = readSrc('src/app/enforce-free-tier.ts');
     const clampStart = appSrc.indexOf('if (panelsChanged) {');
     const clampEnd = appSrc.indexOf('// --- Source limit ---', clampStart);
     assert.ok(clampStart >= 0 && clampEnd > clampStart, 'free-tier panel clamp block must exist');
@@ -152,7 +154,8 @@ describe('cloud prefs panel sync guardrails', () => {
   });
 
   it('resets the fallback before enforcing a new auth/account window', () => {
-    const appSrc = readSrc('src/App.ts');
+    // React migration: App.ts class deleted; auth subscription moved to useAuthLifecycle.ts
+    const appSrc = readSrc('src/hooks/useAuthLifecycle.ts');
     const authStart = appSrc.indexOf('this.unsubFreeTier = subscribeAuthState((session) => {');
     const authEnd = appSrc.indexOf('const geoCoordsPromise', authStart);
     assert.ok(authStart >= 0 && authEnd > authStart, 'auth subscription body must exist');
@@ -166,7 +169,8 @@ describe('cloud prefs panel sync guardrails', () => {
 
   it('never persists a free-tier clamp to dashboard tabs while the tier is unresolved', () => {
     const panelLayoutSrc = readSrc('src/app/panel-layout.ts');
-    const appSrc = readSrc('src/App.ts');
+    // React migration: App.ts class deleted; free-tier heal moved to useAuthLifecycle.ts
+    const appSrc = readSrc('src/hooks/useAuthLifecycle.ts');
 
     // Every tab path that WRITES a clamped snapshot must gate on the tier
     // being known — otherwise a Pro user's saved workspaces get their custom

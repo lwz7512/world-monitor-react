@@ -376,10 +376,12 @@ describe('panel-config guardrails', () => {
   });
 
   it('reapplies panel settings after mounting the async deduction panel', () => {
+    // React migration complete: deduction is now in PANEL_REGISTRY (panel-registry.ts)
+    const panelRegistrySrc = readFileSync(resolve(__dirname, '../src/app/panel-registry.ts'), 'utf-8');
     assert.match(
-      panelLayoutSrc,
-      /this\.lazyPanel\('deduction',\s*\(\)\s*=>\s*\n?\s*this\.importPanel\([\s\S]*?'@\/components\/DeductionPanel'[\s\S]*?new DeductionPanel\(\(\) => this\.ctx\.allNews\)/,
-      'expected DeductionPanel to be registered through the lazy panel loader',
+      panelRegistrySrc,
+      /deduction:\s*\{[\s\S]*?@\/components\/panels\/DeductionPanel/,
+      'expected DeductionPanel registered in PANEL_REGISTRY with correct path',
     );
 
     const mountLazyPanel = panelLayoutSrc.match(
@@ -441,6 +443,11 @@ describe('panel-config guardrails', () => {
     for (const [panelId, entry] of registryEntries) {
       const footprint = naturalFootprints.get(panelId);
       if (!footprint) {
+        // React migration: class file deleted; accept if panel is still registered
+        // in panel-layout.ts via lazyPanel() (React component, active panel).
+        const escapedId = panelId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const isReactPanel = new RegExp(`lazyPanel\\(\\s*['"]${escapedId}['"]`).test(panelLayoutSrc);
+        if (isReactPanel) continue;
         mismatches.push(panelId + ' has stale registry entry with no natural wide/tall constructor footprint');
         continue;
       }

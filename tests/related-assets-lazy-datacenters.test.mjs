@@ -6,7 +6,8 @@ import { resolve } from 'node:path';
 const root = process.cwd();
 const relatedAssetsSrc = readFileSync(resolve(root, 'src/services/related-assets.ts'), 'utf8');
 const countryIntelSrc = readFileSync(resolve(root, 'src/app/country-intel.ts'), 'utf8');
-const newsPanelSrc = readFileSync(resolve(root, 'src/components/NewsPanel.ts'), 'utf8');
+// React migration: preloadRelatedAssetTables moved to NewsPanelContent.tsx
+const newsPanelSrc = readFileSync(resolve(root, 'src/components/panels/NewsPanelContent.tsx'), 'utf8');
 
 describe('related-assets lazy datacenter table contract', () => {
   it('keeps failed lazy datacenter imports retryable instead of caching empty results', () => {
@@ -37,9 +38,11 @@ describe('related-assets lazy datacenter table contract', () => {
     const preloadBlock = countryIntelSrc.slice(preloadBlockStart, preloadBlockEnd);
     assert.match(preloadBlock, /preloadInfrastructureTables\(\)/);
     assert.match(preloadBlock, /countryBriefPage\.updateInfrastructure\(code\)/);
+    // React migration: class-based `this.lastRawClusters` check → `!cancelled && shouldRefresh`
+    // guard in a useEffect cleanup pattern (NewsPanelContent.tsx)
     assert.match(
       newsPanelSrc,
-      /preloadRelatedAssetTables\(titles\)\s*[\r\n\s.]+then\(\(shouldRefresh\) => \{[\s\S]*?if \(shouldRefresh && this\.lastRawClusters\)/,
+      /preloadRelatedAssetTables\(titles\)[\s\S]*?\.then\(shouldRefresh\s*=>\s*\{[\s\S]*?shouldRefresh\)/,
       'clustered news related assets should re-render only when a lazy table actually loaded',
     );
   });

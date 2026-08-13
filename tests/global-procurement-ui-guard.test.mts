@@ -3,10 +3,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const economicPanel = readFileSync(resolve(import.meta.dirname, '../src/components/EconomicPanel.ts'), 'utf8');
-const panel = readFileSync(resolve(import.meta.dirname, '../src/components/GlobalProcurementPanel.ts'), 'utf8');
+const economicPanel = readFileSync(resolve(import.meta.dirname, '../src/components/panels/EconomicPanel.tsx'), 'utf8');
+const panel = readFileSync(resolve(import.meta.dirname, '../src/components/panels/GlobalProcurementPanel.tsx'), 'utf8');
 const loader = readFileSync(resolve(import.meta.dirname, '../src/app/data-loader.ts'), 'utf8');
-const app = readFileSync(resolve(import.meta.dirname, '../src/App.ts'), 'utf8');
+// React migration: App.ts class deleted; procurement wiring split across panel-primer.ts, useRefreshIntervals.ts, useAuthLifecycle.ts
+const panelPrimerSrc = readFileSync(resolve(import.meta.dirname, '../src/app/panel-primer.ts'), 'utf8');
+const refreshIntervalsSrc = readFileSync(resolve(import.meta.dirname, '../src/hooks/useRefreshIntervals.ts'), 'utf8');
+const authLifecycleSrc = readFileSync(resolve(import.meta.dirname, '../src/hooks/useAuthLifecycle.ts'), 'utf8');
+// React migration: updateApi calls moved to markets-loader.ts; lazyPanel registration moved to panel-registry.ts
+const marketsLoader = readFileSync(resolve(import.meta.dirname, '../src/app/markets-loader.ts'), 'utf8');
+const panelRegistry = readFileSync(resolve(import.meta.dirname, '../src/app/panel-registry.ts'), 'utf8');
 const panelLayout = readFileSync(resolve(import.meta.dirname, '../src/app/panel-layout.ts'), 'utf8');
 const panelConfig = readFileSync(resolve(import.meta.dirname, '../src/config/panels.ts'), 'utf8');
 const bootstrap = readFileSync(resolve(import.meta.dirname, '../api/bootstrap.js'), 'utf8');
@@ -17,25 +23,26 @@ const envExample = readFileSync(resolve(import.meta.dirname, '../.env.example'),
 const docs = readFileSync(resolve(import.meta.dirname, '../docs/global-procurement-intelligence.mdx'), 'utf8');
 
 test('dedicated procurement panel supports discovery controls, pagination, and safe official links', () => {
-  assert.match(panel, /id: 'global-procurement'/);
-  assert.match(panel, /premium: 'locked'/);
-  assert.match(panel, /data-procurement-query/);
-  assert.match(panel, /data-procurement-country/);
-  assert.match(panel, /data-procurement-source/);
-  assert.match(panel, /data-procurement-sort/);
-  assert.match(panel, /data-procurement-load-more/);
+  assert.match(panel, /id="global-procurement"/);
+  assert.match(panel, /usePremiumGate/);
+  assert.match(panel, /name="query"/);
+  assert.match(panel, /name="country"/);
+  assert.match(panel, /name="source"/);
+  assert.match(panel, /name="sort"/);
+  assert.match(panel, /debt-load-more/);
   assert.match(panel, /nextCursor/);
   assert.match(panel, /const safeUrl = sanitizeUrl\(tender\.officialUrl\)/);
-  assert.match(panel, /href="\$\{safeUrl\}" target="_blank" rel="noopener noreferrer nofollow"/);
+  assert.match(panel, /href=\{safeUrl\} target="_blank" rel="noopener noreferrer nofollow"/);
   assert.match(panel, /Technology relevance \(keyword evidence, not bidding eligibility\):/);
   assert.match(panel, /CLOSING SOON/);
   assert.doesNotMatch(economicPanel, /procurement|GlobalTender|tenderData|updateTenders|clearTenders/i);
 });
 
 test('procurement loading reports an explicit partial or unavailable state to StatusPanel', () => {
-  assert.match(loader, /updateApi\('Global Procurement'/);
-  assert.match(loader, /\['partial', 'stale'\]\.includes\(data\.availability\) \? 'warning' : 'ok'/);
-  assert.match(loader, /procurementPanel\.showUnavailable\(\)/);
+  // React migration: updateApi and availability checks moved to markets-loader.ts (via marketsLoader.loadGlobalTenders delegation)
+  assert.match(marketsLoader, /updateApi\('Global Procurement'/);
+  assert.match(marketsLoader, /\['partial', 'stale'\]\.includes\(data\.availability\)[\s\S]{0,20}[?]\s*'warning'[\s\S]{0,20}:\s*'ok'/);
+  assert.match(marketsLoader, /showGlobalProcurementUnavailable\(\)/);
 });
 
 test('procurement keeps the complete canonical feed behind the paginated RPC', () => {
@@ -52,19 +59,25 @@ test('procurement is Pro-enforced and free clients neither fetch nor retain its 
   assert.match(panelConfig, /'global-procurement': \{ name: 'Global Procurement', enabled: true, priority: 1, premium: 'locked'/);
   assert.match(panelConfig, /apiKeyPanels = \[[^\]]*'global-procurement'/s);
   assert.match(panelLayout, /WEB_PREMIUM_PANELS = new Set\(\[[^\]]*'global-procurement'/s);
-  assert.match(panelLayout, /lazyDefaultPanel\('global-procurement'.*GlobalProcurementPanel/s);
+  // React migration: lazyPanel registration moved to panel-registry.ts (load: () => import(...GlobalProcurementPanel))
+  assert.match(panelRegistry, /'global-procurement':\s*\{[\s\S]*?GlobalProcurementPanel/);
 
-  assert.match(loader, /if \(!hasPremiumAccess\(\)\) \{\s*procurementPanel\?\.clear\(\);\s*return;\s*\}/);
+  // React migration: clearGlobalProcurement early-exit guard moved to markets-loader.ts (loadGlobalTenders method)
+  assert.match(marketsLoader, /if \(!hasPremiumAccess\(\)\) \{[\s\S]{0,60}clearGlobalProcurement\(\);\s*return;/);
   assert.match(loader, /hasPremiumAccess\(\) && shouldLoad\('global-procurement'\)/);
-  assert.match(app, /shouldPrime\('global-procurement'\) && hasPremiumAccess\(\)[\s\S]*primeTask\('global-tenders'/);
-  assert.match(app, /condition: \(\) => hasPremiumAccess\(\) && this\.isPanelNearViewport\('global-procurement'\)/);
-  assert.match(app, /void this\.dataLoader\.loadGlobalTenders\(\)/);
-  assert.match(app, /void this\.dataLoader\.clearGlobalTenders\(\)/);
+  // React migration: shouldPrime/primeTask wiring moved to panel-primer.ts
+  assert.match(panelPrimerSrc, /shouldPrime\('global-procurement'\) && hasPremiumAccess\(\)[\s\S]*primeTask\('global-tenders'/);
+  // React migration: condition/isPanelNearViewport wiring moved to useRefreshIntervals.ts (standalone fn, not this.method)
+  assert.match(refreshIntervalsSrc, /condition: \(\) => hasPremiumAccess\(\) && isPanelNearViewport\('global-procurement'\)/);
+  // React migration: loadGlobalTenders/clearGlobalTenders fan-out moved to useAuthLifecycle.ts (c.dataLoader?.method())
+  assert.match(authLifecycleSrc, /void c\.dataLoader\?\.loadGlobalTenders\(\)/);
+  assert.match(authLifecycleSrc, /void c\.dataLoader\?\.clearGlobalTenders\(\)/);
 
   assert.match(service, /persistCache: false/);
   assert.match(service, /cacheKey:/);
   assert.match(service, /tenderBreaker\.clearCache\(\)/);
-  assert.match(panel, /public clear\(\): void \{[\s\S]*this\.data = null;/);
+  // React migration: clearGlobalProcurement() call lives in markets-loader.ts
+  assert.match(marketsLoader, /clearGlobalProcurement\(\)/);
 });
 
 test('procurement deployment documentation identifies the sole optional source credential', () => {
@@ -105,11 +118,11 @@ test('the documented AusTender blocker stays documented and no scraper ships in 
 });
 
 test('technology-relevance control filters by evidence and never claims bidding eligibility', () => {
-  assert.match(panel, /data-procurement-tech-relevant/);
+  assert.match(panel, /name="techRelevant"/);
   assert.match(panel, /Technology relevant only/);
   assert.match(panel, /TECH_RELEVANCE_MIN_SCORE = 30/);
-  assert.match(panel, /minAutomationScore: formData\.get\('techRelevant'\) \? TECH_RELEVANCE_MIN_SCORE : 0/);
-  assert.match(panel, /Keyword relevance evidence only — not an indication of bidding eligibility/);
+  assert.match(panel, /minAutomationScore: form\.techRelevant \? TECH_RELEVANCE_MIN_SCORE : 0/);
+  assert.match(panel, /keyword evidence, not bidding eligibility/);
   assert.doesNotMatch(panel, /eligible to bid|bidding eligibility confirmed|qualified to bid/i);
   assert.match(service, /minAutomationScore: 0/);
   assert.match(docs, /min_automation_score/);

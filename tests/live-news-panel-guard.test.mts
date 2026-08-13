@@ -3,12 +3,13 @@
  *
  * Guards against:
  *   1. Happy-variant crash: DEFAULT_LIVE_CHANNELS is [] on happy, so
- *      LiveNewsPanel must not be instantiated without saved channels —
- *      otherwise this.channels[0]! is undefined → constructor crash.
+ *      channel initialization must not crash on empty defaults —
+ *      instead loadChannelsFromStorage() and getDefaultLiveChannels() are
+ *      used as the two-step fallback chain.
  *   2. Fallback-repopulation: the guard must not fall back to
  *      FULL_LIVE_CHANNELS, which would override an intentionally empty
  *      channel set persisted by the user.
- *   3. Guard completeness: panel-layout.ts must check both
+ *   3. Guard completeness: the React component's initChannels() checks both
  *      getDefaultLiveChannels() AND loadChannelsFromStorage() so users
  *      with custom-saved channels can still use the panel on happy.
  */
@@ -34,35 +35,29 @@ describe('LiveNewsPanel instantiation guard', () => {
   // -------------------------------------------------------------------------
 
   it('DEFAULT_LIVE_CHANNELS is [] on happy variant (crash source)', () => {
-    const liveNews = src('src/components/LiveNewsPanel.ts');
-    const match = liveNews.match(/DEFAULT_LIVE_CHANNELS\s*=\s*SITE_VARIANT\s*===\s*['"]tech['"]\s*\?[^:]+:\s*SITE_VARIANT\s*===\s*['"]happy['"]\s*\?\s*(\[[^\]]*\])/);
-    assert.ok(match, 'DEFAULT_LIVE_CHANNELS assignment not found');
+    const channelsSvc = src('src/services/live-news-channels.ts');
+    const match = channelsSvc.match(/DEFAULT_LIVE_CHANNELS\s*=\s*SITE_VARIANT\s*===\s*['"]tech['"]\s*\?[^:]+:\s*SITE_VARIANT\s*===\s*['"]happy['"]\s*\?\s*(\[[^\]]*\])/);
+    assert.ok(match, 'DEFAULT_LIVE_CHANNELS assignment not found in live-news-channels.ts');
     assert.equal(match[1].replace(/\s/g, ''), '[]', 'happy variant DEFAULT_LIVE_CHANNELS must be []');
   });
 
   // -------------------------------------------------------------------------
-  // 2. Constructor must NOT have a FULL_LIVE_CHANNELS fallback
-  //    (would override intentionally empty stored channel sets)
+  // 2. React component must NOT reference FULL_LIVE_CHANNELS directly
+  //    (FULL_LIVE_CHANNELS is unexported; the component must go through
+  //     the service functions to avoid overriding an empty saved set)
   // -------------------------------------------------------------------------
 
-  it('constructor does not fall back to FULL_LIVE_CHANNELS after getDefaultLiveChannels()', () => {
-    const liveNews = src('src/components/LiveNewsPanel.ts');
-    // Extract the region between the two channel-init lines to check for an
-    // unwanted third fallback. We anchor on the lines that must exist.
-    const afterDefaults = liveNews.slice(liveNews.indexOf('if (this.channels.length === 0) this.channels = getDefaultLiveChannels();'));
-    // The next statement after the defaults fallback must NOT be another
-    // this.channels = [...FULL_LIVE_CHANNELS] assignment.
-    const nextAssignment = afterDefaults.match(/\n\s*(this\.channels\s*=[^;\n]+)/);
-    assert.ok(nextAssignment, 'no line after getDefaultLiveChannels fallback found');
+  it('LiveNewsPanel.tsx does not reference FULL_LIVE_CHANNELS directly', () => {
+    const liveNewsTsx = src('src/components/panels/LiveNewsPanel.tsx');
     assert.ok(
-      !nextAssignment[1].includes('FULL_LIVE_CHANNELS'),
-      `constructor must not immediately fall back to FULL_LIVE_CHANNELS:\n  ${nextAssignment[1]}`,
+      !liveNewsTsx.includes('FULL_LIVE_CHANNELS'),
+      'LiveNewsPanel.tsx must not reference FULL_LIVE_CHANNELS — use getDefaultLiveChannels() instead',
     );
   });
 
   it('refreshChannelsFromStorage does not fall back to FULL_LIVE_CHANNELS', () => {
-    const liveNews = src('src/components/LiveNewsPanel.ts');
-    const refreshBlock = liveNews.match(/refreshChannelsFromStorage[^}]+loadChannelsFromStorage[^}]+getDefaultLiveChannels[^}]+(this\.channels\s*=\s*\[\.\.\.FULL_LIVE_CHANNELS\])?/s);
+    const liveNewsTsx = src('src/components/panels/LiveNewsPanel.tsx');
+    const refreshBlock = liveNewsTsx.match(/refreshChannelsFromStorage[^}]+loadChannelsFromStorage[^}]+getDefaultLiveChannels[^}]+(FULL_LIVE_CHANNELS)?/s);
     assert.ok(refreshBlock, 'refreshChannelsFromStorage block not found');
     assert.ok(
       !refreshBlock[1],
@@ -71,37 +66,49 @@ describe('LiveNewsPanel instantiation guard', () => {
   });
 
   // -------------------------------------------------------------------------
-  // 3. panel-layout.ts guard must check BOTH default channels AND saved channels
+  // 3. React component initChannels() checks BOTH storage AND defaults
   //    so that users with persisted custom channels on happy can still use the panel
   // -------------------------------------------------------------------------
 
-  it('panel-layout.ts live-news guard checks getDefaultLiveChannels()', () => {
-    const layout = src('src/app/panel-layout.ts');
-    const guardBlock = layout.match(/this\.lazy(?:Imported)?Panel\('live-news'[\s\S]*?getDefaultLiveChannels\(\)\.length === 0[\s\S]*?return null;/s);
-    assert.ok(
-      guardBlock,
-      "panel-layout.ts must guard 'live-news' with getDefaultLiveChannels().length > 0",
+  it('React component initChannels() safely handles empty default channels', () => {
+    const liveNewsTsx = src('src/components/panels/LiveNewsPanel.tsx');
+    assert.match(
+      liveNewsTsx,
+      /function initChannels/,
+      'LiveNewsPanel.tsx must have an initChannels function for channel initialization',
+    );
+    assert.match(
+      liveNewsTsx,
+      /loadChannelsFromStorage\(\)/,
+      'initChannels must call loadChannelsFromStorage()',
+    );
+    assert.match(
+      liveNewsTsx,
+      /getDefaultLiveChannels\(\)/,
+      'initChannels must fall back to getDefaultLiveChannels()',
     );
   });
 
-  it('panel-layout.ts live-news guard also checks loadChannelsFromStorage()', () => {
-    const layout = src('src/app/panel-layout.ts');
-    const guardBlock = layout.match(/this\.lazy(?:Imported)?Panel\('live-news'[\s\S]*?loadChannelsFromStorage\(\)\.length === 0[\s\S]*?return null;/s);
-    assert.ok(
-      guardBlock,
-      "panel-layout.ts must also check loadChannelsFromStorage().length > 0 so users with saved channels can use the panel on happy variant",
-    );
+  it('React component channel init checks loadChannelsFromStorage then getDefaultLiveChannels', () => {
+    const liveNewsTsx = src('src/components/panels/LiveNewsPanel.tsx');
+    // Slice from the function declaration to the component function to get the full body
+    const initStart = liveNewsTsx.indexOf('function initChannels');
+    const initEnd = liveNewsTsx.indexOf('export function LiveNewsPanel()');
+    assert.ok(initStart > -1 && initEnd > initStart, 'initChannels function not found');
+    const initFn = liveNewsTsx.slice(initStart, initEnd);
+    assert.match(initFn, /loadChannelsFromStorage/, 'initChannels must call loadChannelsFromStorage');
+    assert.match(initFn, /getDefaultLiveChannels/, 'initChannels must fall back to getDefaultLiveChannels');
   });
 
-  it('panel-layout.ts imports both getDefaultLiveChannels and loadChannelsFromStorage', () => {
-    const layout = src('src/app/panel-layout.ts');
+  it('LiveNewsPanel.tsx imports both getDefaultLiveChannels and loadChannelsFromStorage', () => {
+    const liveNewsTsx = src('src/components/panels/LiveNewsPanel.tsx');
     assert.ok(
-      layout.includes('getDefaultLiveChannels'),
-      'panel-layout.ts must import getDefaultLiveChannels',
+      liveNewsTsx.includes('getDefaultLiveChannels'),
+      'LiveNewsPanel.tsx must import getDefaultLiveChannels',
     );
     assert.ok(
-      layout.includes('loadChannelsFromStorage'),
-      'panel-layout.ts must import loadChannelsFromStorage',
+      liveNewsTsx.includes('loadChannelsFromStorage'),
+      'LiveNewsPanel.tsx must import loadChannelsFromStorage',
     );
   });
 
@@ -119,22 +126,19 @@ describe('LiveNewsPanel instantiation guard', () => {
     );
   });
 
-  it('event-handlers.ts calls mountLiveNewsIfReady when liveChannels changes and panel is missing', () => {
-    const handlers = src('src/app/event-handlers.ts');
-    // The liveChannels branch must have an else clause that calls mountLiveNewsIfReady
-    const liveChannelsBlock = handlers.match(/liveChannels.*?(?=if \(e\.key)/s);
-    assert.ok(liveChannelsBlock, 'liveChannels storage handler not found');
+  it('panel-tab-manager.ts calls mountLiveNewsIfReady when live channels are updated', () => {
+    const tabManager = src('src/app/panel-tab-manager.ts');
     assert.ok(
-      handlers.includes('mountLiveNewsIfReady'),
-      'event-handlers.ts must call mountLiveNewsIfReady when liveChannels fires and panel does not exist',
+      tabManager.includes('mountLiveNewsIfReady'),
+      'panel-tab-manager.ts must call mountLiveNewsIfReady so channel updates trigger panel creation',
     );
   });
 
   it('App.ts wires mountLiveNewsIfReady callback to panelLayout', () => {
-    const app = src('src/App.ts');
+    const app = src('src/app/create-app-managers.ts');
     assert.ok(
       app.includes('mountLiveNewsIfReady'),
-      'App.ts must wire mountLiveNewsIfReady callback so EventHandlerManager can trigger lazy panel creation',
+      'create-app-managers.ts must wire mountLiveNewsIfReady callback so event handlers can trigger lazy panel creation',
     );
   });
 });
@@ -183,10 +187,16 @@ describe("live-news must not be shadowed by a generic NewsPanel (regression #438
 
     const skipsLiveNews = /key\s*===\s*['"]live-news['"]/.test(loopRegion);
     const collidesLiveNews = /COLLIDING_NEWS_PANEL_KEYS\s*=\s*new Set\(\[[^\]]*['"]live-news['"]/.test(layout);
-    const lateRegistersLiveNews = /LATE_REGISTERED_PANEL_KEYS\s*=\s*new Set\(\[[^\]]*['"]live-news['"]/.test(layout);
+    const lateRegistersLiveNews = /LATE_REGISTERED_PANEL_KEYS(?::[^=]*)?\s*=\s*new Set\(\[[^\]]*['"]live-news['"]/.test(layout);
+    // Phase 7: 'live-news' moved into PANEL_REGISTRY, which is processed via the
+    // PANEL_REGISTRY loop BEFORE the CANONICAL_FEEDS loop. Being in lazyPanelRegistrations
+    // before the pass makes isPanelKeyClaimed('live-news') return true, so the pass
+    // tries 'live-news-news' (no settings entry) and creates nothing.
+    const registrySrc = src('src/app/panel-registry.ts');
+    const inPanelRegistry = /['"]live-news['"]\s*:/.test(registrySrc);
 
     assert.ok(
-      skipsLiveNews || collidesLiveNews || lateRegistersLiveNews,
+      skipsLiveNews || collidesLiveNews || lateRegistersLiveNews || inPanelRegistry,
       "panel-layout.ts must exclude 'live-news' from the CANONICAL_FEEDS NewsPanel loop " +
         "(it is the dedicated LiveNewsPanel video key). Without this, the generic NewsPanel " +
         "shadows the video panel and lazyPanel's dedup guard blocks the real one (regression #4382).",

@@ -217,7 +217,7 @@ describe('dashboard critical CSS graph', () => {
   });
 
   it('keeps standalone settings CSS out of the dashboard static import graph', () => {
-    const dashboardGraph = collectStaticGraph('src/main.ts');
+    const dashboardGraph = collectStaticGraph('src/main.tsx');
     const unifiedSettingsGraph = collectStaticGraph('src/components/UnifiedSettings.ts');
     const settingsGraph = collectStaticGraph('src/settings-main.ts');
 
@@ -227,12 +227,12 @@ describe('dashboard critical CSS graph', () => {
       'The dashboard static graph must keep the in-dashboard UnifiedSettings modal on the lazy interaction path.',
     );
     assert.equal(
-      dashboardGraph.has('src/app/event-handlers.ts'),
+      dashboardGraph.has('src/hooks/useUnifiedSettings.ts'),
       true,
       'sanity check: the dashboard static graph must still reach the lazy settings controller owner.',
     );
     assert.equal(
-      dynamicModuleSpecifiers('src/app/event-handlers.ts').includes('@/components/UnifiedSettings'),
+      dynamicModuleSpecifiers('src/hooks/useUnifiedSettings.ts').includes('@/components/UnifiedSettings'),
       true,
       'sanity check: the dashboard still reaches UnifiedSettings through the lazy settings controller.',
     );
@@ -254,7 +254,7 @@ describe('dashboard critical CSS graph', () => {
   });
 
   it('keeps happy variant theme CSS off the default dashboard static graph', () => {
-    const dashboardGraph = collectStaticGraph('src/main.ts');
+    const dashboardGraph = collectStaticGraph('src/main.tsx');
 
     assert.equal(
       dashboardGraph.has('src/styles/happy-theme.css'),
@@ -263,7 +263,7 @@ describe('dashboard critical CSS graph', () => {
     );
 
     assert.equal(
-      dynamicModuleSpecifiers('src/main.ts').includes('./styles/happy-theme.css'),
+      dynamicModuleSpecifiers('src/main.tsx').includes('./styles/happy-theme.css'),
       true,
       'The happy variant should still be able to load happy-theme.css through an explicit dynamic import.',
     );

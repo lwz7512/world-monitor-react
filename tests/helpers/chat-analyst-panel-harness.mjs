@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -164,6 +164,9 @@ async function loadChatAnalystPanel() {
 }
 
 export async function createChatAnalystPanelHarness() {
+  // Class-based panel was removed in the React migration. Return null so callers
+  // can skip instead of failing with an esbuild ENOENT error.
+  if (!existsSync(entry)) return null;
   const originalGlobals = {
     document: snapshotGlobal('document'),
     window: snapshotGlobal('window'),

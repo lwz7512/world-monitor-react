@@ -8,20 +8,25 @@ describe('China activity nowcast production registration (#5579)', () => {
   it('registers the panel, loader, refresh cadence, command, and lazy chunk', () => {
     const panels = read('src/config/panels.ts');
     const base = read('src/config/variants/base.ts');
-    const app = read('src/App.ts');
+    // React migration: App.ts class deleted; primeTask moved to panel-primer.ts, scheduleRefresh to useRefreshIntervals.ts
+    const panelPrimer = read('src/app/panel-primer.ts');
+    const refreshIntervals = read('src/hooks/useRefreshIntervals.ts');
     const loader = read('src/app/data-loader.ts');
-    const layout = read('src/app/panel-layout.ts');
+    // React migration: lazyPanel registration moved from panel-layout.ts to panel-registry.ts
+    const panelRegistry = read('src/app/panel-registry.ts');
     const commands = read('src/config/commands.ts');
     const vite = read('vite.config.ts');
 
     assert.match(panels, /'china-activity-nowcast': \{ name: 'China Activity Nowcast', enabled: true/);
     assert.match(panels, /'china-corridors', 'china-activity-nowcast'/);
     assert.match(base, /chinaActivityNowcast: 15 \* 60 \* 1000/);
-    assert.match(app, /primeTask\('chinaActivityNowcast', \(\) => this\.dataLoader\.loadChinaActivityNowcast\(\)\)/);
-    assert.match(app, /scheduleRefresh\('chinaActivityNowcast'/);
+    // React migration: was this.dataLoader → ctx.dataLoader!
+    assert.match(panelPrimer, /primeTask\('chinaActivityNowcast', \(\) => ctx\.dataLoader!\.loadChinaActivityNowcast\(\)\)/);
+    assert.match(refreshIntervals, /scheduleRefresh\(\s*'chinaActivityNowcast'/);
     assert.match(loader, /async loadChinaActivityNowcast\(\): Promise<void>/);
     assert.match(loader, /shouldLoad\('china-activity-nowcast'\)/);
-    assert.match(layout, /lazyDefaultPanel\(\s*'china-activity-nowcast'/);
+    // React migration: lazyPanel moved to panel-registry.ts entry
+    assert.match(panelRegistry, /'china-activity-nowcast':\s*\{[\s\S]*?ChinaActivityNowcast/);
     assert.match(commands, /id: 'panel:china-activity-nowcast'/);
     assert.match(vite, /ChinaActivityNowcast: 'panels-economy'/);
   });

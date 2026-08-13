@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { afterEach, describe, it } from 'node:test';
 
 import {
@@ -251,8 +251,11 @@ describe('server-backed stored stock backtests', () => {
 
 describe('technical-only backtest disclosure', () => {
   it('labels the panel and persistent namespaces independently from live composite ratings', () => {
+    // React migration: StockBacktestPanel.ts → StockBacktestPanel.tsx
+    const classPath = new URL('../src/components/StockBacktestPanel.ts', import.meta.url);
+    const reactPath = new URL('../src/components/panels/StockBacktestPanel.tsx', import.meta.url);
     const panelSource = readFileSync(
-      new URL('../src/components/StockBacktestPanel.ts', import.meta.url),
+      existsSync(classPath.pathname) ? classPath : reactPath,
       'utf8',
     );
     const storeSource = readFileSync(

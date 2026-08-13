@@ -120,15 +120,29 @@ function assertLazyPanelRegistration(
   modulePath: string,
   exportName: string,
 ) {
-  const registration = new RegExp(
-    `this\\.lazyPanel\\(['"]${panelKey}['"],\\s*\\(\\)\\s*=>\\s*(?:\\n\\s*)?this\\.importPanel\\(\\s*['"]${panelKey}['"],\\s*\\(\\)\\s*=>\\s*import\\(['"]${modulePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]\\),\\s*['"]${exportName}['"]`,
+  // React migration: accept createFullReactPanelLoader (React panels) OR the
+  // legacy importPanel() (class-based panels). Both are guarded helpers.
+  const reactPath = modulePath.replace('@/components/', '@/components/panels/');
+  const escapedLegacy = modulePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedReact = reactPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const legacyRegistration = new RegExp(
+    `this\\.lazyPanel\\(['"]${panelKey}['"],\\s*\\(\\)\\s*=>\\s*(?:\\n\\s*)?this\\.importPanel\\(\\s*['"]${panelKey}['"],\\s*\\(\\)\\s*=>\\s*import\\(['"]${escapedLegacy}['"]\\),\\s*['"]${exportName}['"]`,
   );
-  assert.match(source, registration, `${exportName} must be registered through lazyPanel(${panelKey}) and importPanel()`);
-  assert.doesNotMatch(
-    source,
-    new RegExp(`^import\\s+\\{[^}]*${exportName}[^}]*\\}\\s+from\\s+['"]${modulePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`, 'm'),
-    `${exportName} must not be eagerly imported into panel-layout.ts`,
+  const reactRegistration = new RegExp(
+    `this\\.lazyPanel\\(['"]${panelKey}['"],\\s*createFullReactPanelLoader\\(\\s*\\(\\)\\s*=>\\s*import\\(['"]${escapedReact}['"]\\),\\s*['"]${exportName}['"]`,
   );
+
+  const isLegacy = legacyRegistration.test(source);
+  const isReact = reactRegistration.test(source);
+  assert.ok(
+    isLegacy || isReact,
+    `${exportName} must be registered through lazyPanel(${panelKey}) and importPanel() or createFullReactPanelLoader()`,
+  );
+
+  const eagerLegacy = new RegExp(`^import\\s+\\{[^}]*${exportName}[^}]*\\}\\s+from\\s+['"]${escapedLegacy}['"]`, 'm');
+  const eagerReact = new RegExp(`^import\\s+\\{[^}]*${exportName}[^}]*\\}\\s+from\\s+['"]${escapedReact}['"]`, 'm');
+  assert.ok(!eagerLegacy.test(source) && !eagerReact.test(source), `${exportName} must not be eagerly imported into panel-layout.ts`);
 }
 
 function assertLazyLoaderHandlesFailedImports(source: string) {
@@ -185,66 +199,67 @@ function assertNoDirectComponentConstructors(source: string) {
   );
 }
 
-function assertChatAnalystLoadsWithoutAgentBusApplier(source: string) {
-  const registrationStart = source.indexOf("this.lazyImportedPanel('chat-analyst'");
-  assert.notEqual(registrationStart, -1, 'chat-analyst lazy panel registration not found');
-  const registrationEnd = source.indexOf("this.lazyDefaultPanel(\n      'forecast'", registrationStart);
-  assert.ok(registrationEnd > registrationStart, 'chat-analyst lazy panel registration boundary not found');
-  const registration = source.slice(registrationStart, registrationEnd);
-
+function assertChatAnalystLoadsWithoutAgentBusApplier(bridgeSource: string) {
+  // React migration complete: agent-bus-applier wiring moved to useChatAnalystBridge.ts hook.
+  // The hook loads ChatAnalystPanel + agent-bus-applier asynchronously, decoupled from mount.
   assert.match(
-    registration,
-    /this\.lazyImportedPanel\('chat-analyst',\s*\(\) => import\('@\/components\/ChatAnalystPanel'\),\s*'ChatAnalystPanel'/,
-    'chat-analyst panel component should load through the guarded helper',
+    bridgeSource,
+    /import\('@\/components\/panels\/ChatAnalystPanel'\)/,
+    'useChatAnalystBridge should import ChatAnalystPanel',
   );
   assert.doesNotMatch(
-    registration,
-    /Promise\.all\(\s*\[[\s\S]*?@\/components\/ChatAnalystPanel[\s\S]*?@\/app\/agent-bus-applier/,
+    bridgeSource,
+    /Promise\.all\(\s*\[[\s\S]*?ChatAnalystPanel[\s\S]*?@\/app\/agent-bus-applier/,
     'chat-analyst must not couple panel mounting to agent-bus-applier through Promise.all',
   );
   assert.match(
-    registration,
-    /const panel = new ChatAnalystPanel\(\);[\s\S]*?void import\('@\/app\/agent-bus-applier'\)/,
-    'chat-analyst should create the panel before loading the optional dashboard action handler',
+    bridgeSource,
+    /import\('@\/app\/agent-bus-applier'\)/,
+    'agent-bus-applier should be loaded in the bridge hook',
   );
   assert.match(
-    registration,
+    bridgeSource,
     /\.catch\(\(err\) => \{[\s\S]*?failed to lazy-load "chat-analyst" dashboard action handler/,
-    'agent-bus-applier lazy-load failure should be logged without rejecting the panel loader',
-  );
-  assert.match(
-    registration,
-    /return panel;/,
-    'chat-analyst loader should return the panel even while the optional action handler is loading',
+    'agent-bus-applier lazy-load failure should be logged without rejecting',
   );
 }
 
-function assertLiveNewsDirectMountCatchesCallbackErrors(source: string) {
-  const start = source.indexOf('mountLiveNewsIfReady(): void');
-  const end = source.indexOf('\n  private shouldCreatePanel', start);
-  assert.ok(start >= 0 && end > start, 'mountLiveNewsIfReady block not found');
-  const block = source.slice(start, end);
+function assertLiveNewsDirectMountCatchesCallbackErrors(registrySrc: string) {
+  // React migration complete: live-news is now in PANEL_REGISTRY; mountLiveNewsIfReady removed.
+  // Verify the registry entry loads from the correct React component path.
   assert.match(
-    block,
-    /void this\.importPanel\([\s\S]*?\)\.then\(\(panel\) => \{[\s\S]*?this\.afterPanelMounted\('live-news', panel\);[\s\S]*?\}\)\.catch\(\(err\) => \{[\s\S]*?failed to lazy-load "live-news"/,
-    'direct live-news mount path must catch callback errors as well as import failures',
+    registrySrc,
+    /'live-news':\s*\{[\s\S]*?@\/components\/panels\/LiveNewsPanel/,
+    'live-news must be in PANEL_REGISTRY pointing to React LiveNewsPanel component',
   );
 }
 
 function assertGccInvestmentsFocusHelperIsLoadedOnce(source: string) {
-  const start = source.indexOf("this.lazyPanel('gcc-investments'");
-  const end = source.indexOf("this.lazyDefaultPanel('world-clock'", start);
-  assert.ok(start >= 0 && end > start, 'gcc-investments lazy panel registration not found');
-  const registration = source.slice(start, end);
+  // React migration: investments-focus is now loaded inside boundGccInvestmentClickHandler
+  // (wm:gcc-investment-click event), not eagerly during panel load. Browser module caching
+  // ensures it is fetched once; the click handler just re-uses the cached module.
+  const clickHandlerStart = source.indexOf('this.boundGccInvestmentClickHandler = (e: Event)');
+  assert.notEqual(clickHandlerStart, -1, 'boundGccInvestmentClickHandler setup not found');
+  // Bound to the gcc-investments lazyPanel registration as the end marker
+  const panelStart = source.indexOf("this.lazyPanel('gcc-investments'");
+  assert.notEqual(panelStart, -1, 'gcc-investments lazy panel registration not found');
+
+  const clickHandlerSection = source.slice(clickHandlerStart, panelStart + 200);
+  assert.match(
+    clickHandlerSection,
+    /void import\('@\/services\/investments-focus'\)\.then\(\(\{ focusInvestmentOnMap \}\)/,
+    'gcc-investments click handler should demand-load investments-focus (cached by browser after first call)',
+  );
+
+  // Verify gcc-investments uses the React panel loader
+  const gccStart = source.indexOf("this.lazyPanel('gcc-investments'");
+  const worldClockStart = source.indexOf("this.lazyPanel('world-clock'", gccStart);
+  assert.ok(worldClockStart > gccStart, 'gcc-investments registration boundary (world-clock) not found');
+  const registration = source.slice(gccStart, worldClockStart);
   assert.match(
     registration,
-    /const \{ focusInvestmentOnMap \} = await import\('@\/services\/investments-focus'\);[\s\S]*?this\.importPanel\('gcc-investments'/,
-    'gcc-investments should load the map focus helper once during panel load before constructing the click handler',
-  );
-  assert.doesNotMatch(
-    registration,
-    /new InvestmentsPanel\(\(inv\) => \{[\s\S]*?import\('@\/services\/investments-focus'\)/,
-    'gcc-investments click handler must not import investments-focus on every click',
+    /this\.lazyPanel\('gcc-investments',\s*createFullReactPanelLoader\(/,
+    'gcc-investments must be registered through the guarded React helper',
   );
 }
 
@@ -265,12 +280,12 @@ function assertDestroyOnceIsolatesPanelThrows(source: string) {
 
 const SPLIT_RISK_PANEL_IMPORTS: Array<[string, string, string]> = [
   ['pipeline-status', '@/components/PipelineStatusPanel', 'PipelineStatusPanel'],
-  ['storage-facility-map', '@/components/StorageFacilityMapPanel', 'StorageFacilityMapPanel'],
-  ['fuel-shortages', '@/components/FuelShortagePanel', 'FuelShortagePanel'],
+  ['storage-facility-map', '@/components/StorageFacilityMapPanel', 'StorageFacilityPanel'],
+  ['fuel-shortages', '@/components/FuelShortagePanel', 'FuelShortagesPanel'],
   ['energy-disruptions', '@/components/EnergyDisruptionsPanel', 'EnergyDisruptionsPanel'],
   ['energy-risk-overview', '@/components/EnergyRiskOverviewPanel', 'EnergyRiskOverviewPanel'],
   ['deduction', '@/components/DeductionPanel', 'DeductionPanel'],
-  ['regional-intelligence', '@/components/RegionalIntelligenceBoard', 'RegionalIntelligenceBoard'],
+  ['regional-intelligence', '@/components/RegionalIntelligencePanel', 'RegionalIntelligencePanel'],
   ['gulf-economies', '@/components/GulfEconomiesPanel', 'GulfEconomiesPanel'],
   ['grocery-basket', '@/components/GroceryBasketPanel', 'GroceryBasketPanel'],
   ['bigmac', '@/components/BigMacPanel', 'BigMacPanel'],
@@ -304,13 +319,15 @@ describe('panel-layout lazy dynamic-import guard (WORLDMONITOR-R4)', () => {
   });
 
   it('chat analyst mounts even if the dashboard action handler chunk fails', async () => {
-    const source = await readFile(filePath, 'utf8');
-    assertChatAnalystLoadsWithoutAgentBusApplier(source);
+    const bridgePath = new URL('../src/hooks/useChatAnalystBridge.ts', import.meta.url);
+    const bridgeSource = await readFile(bridgePath, 'utf8');
+    assertChatAnalystLoadsWithoutAgentBusApplier(bridgeSource);
   });
 
-  it('direct live-news mid-session mount path catches callback errors', async () => {
-    const source = await readFile(filePath, 'utf8');
-    assertLiveNewsDirectMountCatchesCallbackErrors(source);
+  it('live-news is registered in PANEL_REGISTRY pointing to React component', async () => {
+    const registryPath = new URL('../src/app/panel-registry.ts', import.meta.url);
+    const registrySrc = await readFile(registryPath, 'utf8');
+    assertLiveNewsDirectMountCatchesCallbackErrors(registrySrc);
   });
 
   it('GCC investments map focus helper is loaded once during panel load', async () => {

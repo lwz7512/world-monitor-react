@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { replaceRawI18nKeyPlaceholders } from '../src/app/i18n-raw-key-healer.ts';
 
 const I18N_SOURCE = 'src/services/i18n.ts';
-const APP_SOURCE = 'src/App.ts';
+// React migration: App.ts class deleted; i18n subscription moved to useI18nHydration.ts hook
+const APP_SOURCE = 'src/hooks/useI18nHydration.ts';
 const EN_LOCALE = 'src/locales/en.json';
 const EN_SHELL_LOCALE = 'src/locales/en.shell.json';
 const COMPONENTS_DIR = 'src/components';
@@ -19,7 +20,8 @@ function tsFilesUnder(dir) {
 }
 
 const EAGER_CHROME_FILES = [
-  'src/App.ts',
+  // React migration: App.ts class deleted; equivalent wiring in create-app-managers.ts
+  'src/app/create-app-managers.ts',
   'src/app/panel-layout.ts',
   'src/settings-main.ts',
   'src/settings-window.ts',
@@ -186,14 +188,15 @@ describe('English i18n shell split', () => {
     );
 
     const appSource = readFileSync(APP_SOURCE, 'utf8');
+    // React migration: class this.handleI18nResourcesLoaded → local handler; this.state.container → container
     assert.match(
       appSource,
-      /addEventListener\(I18N_RESOURCES_LOADED_EVENT,\s*this\.handleI18nResourcesLoaded\)/,
+      /addEventListener\(I18N_RESOURCES_LOADED_EVENT,\s*(?:this\.handleI18nResourcesLoaded|handler)\)/,
       'App should listen for full English preload completion via the shared constant',
     );
     assert.match(
       appSource,
-      /replaceRawI18nKeyPlaceholders\(this\.state\.container,\s*t\)/,
+      /replaceRawI18nKeyPlaceholders\((?:this\.state\.container|container),\s*t\)/,
       'App should heal already-rendered raw i18n keys after full English loads',
     );
   });

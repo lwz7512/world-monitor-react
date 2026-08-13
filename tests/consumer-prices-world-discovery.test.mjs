@@ -25,7 +25,7 @@ const read = (p) => readFileSync(resolve(__dirname, p), 'utf-8');
 const commandsSrc = read('../src/config/commands.ts');
 const searchModalSrc = read('../src/components/SearchModal.ts');
 const searchManagerSrc = read('../src/app/search-manager.ts');
-const panelSrc = read('../src/components/ConsumerPricesPanel.ts');
+const panelSrc = read('../src/components/panels/ConsumerPricesPanel.tsx');
 
 describe('Consumer Prices World tab — CMD+K discoverability', () => {
   it('exposes a panel:consumer-prices@world deep-link command', () => {

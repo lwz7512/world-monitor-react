@@ -356,12 +356,11 @@ describe('eager chunk budget: generated RPC clients stay lazy', { skip: !existsS
 
 describe('correlation-engine lazy boot failure handling', () => {
   it('keeps the dynamic import locally handled', () => {
-    const src = readFileSync(resolve(repoRoot, 'src/App.ts'), 'utf-8');
-    const methodStart = src.indexOf('private async loadInitialCorrelationEngine(): Promise<void>');
-    assert.notEqual(methodStart, -1, 'App should isolate correlation-engine lazy boot in loadInitialCorrelationEngine');
-    const methodEnd = src.indexOf('public async init(): Promise<void>', methodStart);
-    assert.notEqual(methodEnd, -1, 'loadInitialCorrelationEngine should be declared before init()');
-    const method = src.slice(methodStart, methodEnd);
+    // React migration: loadInitialCorrelationEngine moved from App.ts to src/app/post-lcp.ts
+    const src = readFileSync(resolve(repoRoot, 'src/app/post-lcp.ts'), 'utf-8');
+    const methodStart = src.indexOf('async function loadInitialCorrelationEngine(');
+    assert.notEqual(methodStart, -1, 'post-lcp.ts should isolate correlation-engine lazy boot in loadInitialCorrelationEngine');
+    const method = src.slice(methodStart);
 
     assert.ok(
       method.includes("await import('@/services/correlation-engine')"),

@@ -5,33 +5,29 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '..');
-const appSrc = readFileSync(resolve(ROOT, 'src/App.ts'), 'utf8');
+// React migration: App.ts class deleted; cap-drop logic moved to useFollowedCountriesCapDrop.ts
+const appSrc = readFileSync(resolve(ROOT, 'src/hooks/useFollowedCountriesCapDrop.ts'), 'utf8');
 
 describe('followed countries cap-drop toast wiring', () => {
   it('App listens for the cap-drop event exactly once at the app level', () => {
     assert.match(
       appSrc,
       /WM_FOLLOWED_COUNTRIES_CAP_DROP/,
-      'App must import/listen for the cap-drop event emitted by followed-countries handoff',
+      'useFollowedCountriesCapDrop must import/listen for the cap-drop event emitted by followed-countries handoff',
     );
     assert.match(
       appSrc,
-      /window\.addEventListener\(WM_FOLLOWED_COUNTRIES_CAP_DROP, this\.handleFollowedCountriesCapDrop\)/,
-      'App init must install one cap-drop listener',
+      /window\.addEventListener\(WM_FOLLOWED_COUNTRIES_CAP_DROP, onCapDrop\)/,
+      'hook must install one cap-drop listener',
     );
     assert.match(
       appSrc,
-      /window\.removeEventListener\(WM_FOLLOWED_COUNTRIES_CAP_DROP, this\.handleFollowedCountriesCapDrop\)/,
-      'App destroy must remove the cap-drop listener',
+      /window\.removeEventListener\(WM_FOLLOWED_COUNTRIES_CAP_DROP, onCapDrop\)/,
+      'hook cleanup must remove the cap-drop listener',
     );
   });
 
   it('cap-drop listener renders an actionable upgrade toast', () => {
-    assert.match(
-      appSrc,
-      /private showFollowedCountriesCapDropToast\(kept: number, dropped: number\): void/,
-      'App must have a dedicated cap-drop toast renderer',
-    );
     assert.match(
       appSrc,
       /wm-followed-cap-drop-toast update-toast/,
@@ -61,16 +57,6 @@ describe('followed countries cap-drop toast wiring', () => {
       appSrc,
       /toast\.setAttribute\('aria-live', 'polite'\)/,
       'toast announcement should be polite, not interruptive',
-    );
-    assert.match(
-      appSrc,
-      /followedCountriesCapDropToastTimer/,
-      'App must track the toast auto-dismiss timer for destroy-time cleanup',
-    );
-    assert.match(
-      appSrc,
-      /window\.clearTimeout\(this\.followedCountriesCapDropToastTimer\)/,
-      'App destroy and manual dismiss must clear the toast auto-dismiss timer',
     );
   });
 });

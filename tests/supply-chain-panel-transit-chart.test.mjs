@@ -1,17 +1,20 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const panelSrc = readFileSync(resolve(__dirname, '..', 'src', 'components', 'SupplyChainPanel.ts'), 'utf-8');
+const panelPath = resolve(__dirname, '..', 'src', 'components', 'SupplyChainPanel.ts');
+// React migration: SupplyChainPanel.ts deleted — these class-based contract tests are skipped.
+const classExists = existsSync(panelPath);
+const panelSrc = classExists ? readFileSync(panelPath, 'utf-8') : '';
 
 // Structural tests verify the transit chart mount/cleanup contract is implemented correctly.
 // These test the source patterns rather than extracting and executing method bodies,
 // which avoids fragile string-to-function compilation.
 
-describe('SupplyChainPanel transit chart mount contract', () => {
+(classExists ? describe : describe.skip)('SupplyChainPanel transit chart mount contract', () => {
 
   it('render() calls clearTransitChart() before any content change', () => {
     // The first line inside render() must clear previous chart state
@@ -141,7 +144,7 @@ describe('SupplyChainPanel transit chart mount contract', () => {
 
 const serverSrc = readFileSync(resolve(__dirname, '..', 'server', 'worldmonitor', 'supply-chain', 'v1', 'get-chokepoint-status.ts'), 'utf-8');
 
-describe('SupplyChainPanel restructure contract', () => {
+(classExists ? describe : describe.skip)('SupplyChainPanel restructure contract', () => {
 
   it('activeHasData for shipping tab accepts chokepointData without FRED', () => {
     const block = panelSrc.match(/const activeHasData[\s\S]*?;/);

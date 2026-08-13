@@ -6,11 +6,12 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Extract the shouldSuppressCspViolation function from main.ts source.
+// Extract the shouldSuppressCspViolation function from main.tsx source.
 // We parse it as a standalone function to avoid importing the entire Sentry/App bootstrap.
-const mainSrc = readFileSync(resolve(__dirname, '../src/main.ts'), 'utf-8');
+// React migration: main.ts renamed to main.tsx
+const mainSrc = readFileSync(resolve(__dirname, '../src/main.tsx'), 'utf-8');
 const fnMatch = mainSrc.match(/function shouldSuppressCspViolation\(([\s\S]*?)\): boolean \{([\s\S]*?)\nfunction |function shouldSuppressCspViolation\(([\s\S]*?)\): boolean \{([\s\S]*?)\n\}/);
-assert.ok(fnMatch, 'shouldSuppressCspViolation must exist in src/main.ts');
+assert.ok(fnMatch, 'shouldSuppressCspViolation must exist in src/main.tsx');
 
 // Build a callable version from the source text
 const fnBody = (fnMatch[2] ?? fnMatch[4]).trim();

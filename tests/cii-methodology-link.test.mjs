@@ -11,13 +11,14 @@ function read(path) {
 
 describe('CIIPanel visible methodology link', () => {
   it('renders the CII methodology URL in panel content outside the tooltip', () => {
-    const src = read('src/components/CIIPanel.ts');
+    const src = read('src/components/panels/CIIPanel.tsx');
     assert.match(src, /export const CII_METHODOLOGY_HREF = '\/docs\/methodology\/cii-risk-scores';/);
-    assert.match(src, /private buildMethodologyFooter\(\): HTMLElement/);
-    assert.match(src, /className: 'cii-methodology-footer'/);
-    assert.match(src, /href: CII_METHODOLOGY_HREF/);
-    assert.match(src, /replaceChildren\(this\.content, this\.buildList\(withData\), this\.buildMethodologyFooter\(\)\)/);
-    assert.match(src, /replaceChildren\(this\.content, this\.buildList\(scores\), this\.buildMethodologyFooter\(\)\)/);
+    // React: footer rendered as JSX div with className, not a class method
+    assert.match(src, /className="cii-methodology-footer"/);
+    assert.match(src, /href=\{CII_METHODOLOGY_HREF\}/);
+    // Footer must appear in both the data mode and the unavailable mode render paths
+    const footerCount = (src.match(/cii-methodology-footer/g) ?? []).length;
+    assert.ok(footerCount >= 2, `cii-methodology-footer must appear in at least 2 render paths, found ${footerCount}`);
   });
 
   it('styles the visible footer as an in-panel link', () => {

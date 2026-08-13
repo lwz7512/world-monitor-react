@@ -15,7 +15,7 @@ import {
 } from './helpers/china-macro-fixture.mjs';
 
 const panelSource = readFileSync(
-  new URL('../src/components/MacroTilesPanel.ts', import.meta.url),
+  new URL('../src/components/panels/MacroTilesPanel.tsx', import.meta.url),
   'utf8',
 );
 const retrievalTime = CHINA_MACRO_FIXTURE_RETRIEVAL_TIME;
@@ -242,9 +242,9 @@ describe('MacroTilesPanel China launch surface', () => {
     assert.match(panelSource, /type Tab = 'us' \| 'eu' \| 'cn'/);
     assert.match(panelSource, /getHydratedData\('chinaMacro'\)/);
     assert.match(panelSource, /getHydratedData\('chinaReleaseCalendar'\)/);
-    assert.match(panelSource, /normalizeHydratedChina\(hydratedMacro, hydratedCalendar\)/);
+    assert.match(panelSource, /normalizeHydratedChina\(/);
     assert.match(panelSource, /client\.getChinaMacroSnapshot\(\{\}\)/);
-    assert.match(panelSource, /hasChinaMacroData\(this\._china\)/);
+    assert.match(panelSource, /hasChinaMacroData\(/);
     assert.match(panelSource, /role="tablist"/);
     assert.match(panelSource, /role="tab"/);
     assert.match(panelSource, /aria-selected=/);
@@ -253,7 +253,7 @@ describe('MacroTilesPanel China launch surface', () => {
     assert.match(panelSource, /ArrowLeft/);
     assert.match(panelSource, /Home/);
     assert.match(panelSource, /End/);
-    assert.match(panelSource, /setSafeContent\([\s\S]*afterUpdate/);
+    assert.match(panelSource, /usePanelData/);
     assert.match(panelSource, /repeat\(auto-fit,minmax\(130px,1fr\)\)/);
     assert.match(panelSource, /China release calendar/);
   });

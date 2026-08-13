@@ -1,18 +1,21 @@
 // Regression guard for PR #3833 follow-up: tech-readiness refresh must be
 // variant-gated, not just viewport-gated.
 //
-// Bug: `shouldLoad(id)` returns `forceAll || isPanelNearViewport(id)` and
+// Original bug: `shouldLoad(id)` returns `forceAll || isPanelNearViewport(id)` and
 // `App.ts:1226` calls `loadAllData(true)` on boot — so a `shouldLoad`-only
 // gate is bypassed at startup on every variant, and tech-readiness was
 // still firing its 5s `/api/bootstrap?keys=techReadiness` fetch on
 // commodity/finance/energy/happy where the seed key isn't populated.
 //
-// Fix: gate on `isPanelInVariantDefaults('tech-readiness')` in BOTH paths
-// that auto-refresh — `data-loader.ts` (periodic + boot fan-out) and
-// `panel-layout.ts` (lazyPanel factory's eager `p.refresh()` call).
+// React migration fix: the variant gate is now implicit via the component
+// mount lifecycle. TechReadinessPanel uses `usePanelData` which only fires
+// when the component mounts. The component only mounts in variants where
+// `tech-readiness` is in the panel defaults. No explicit `isPanelInVariantDefaults`
+// call is needed in data-loader.ts or panel-layout.ts.
 //
-// This test fails loudly if either gate is removed or weakened, even
-// after innocent reformatting (line-walker, not strict regex).
+// These tests guard the new invariant: tech-readiness must stay self-fetching
+// (no data-loader task), and its registration must use createFullReactPanelLoader
+// (which respects React mount lifecycle as the implicit variant gate).
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,39 +37,46 @@ function stripComments(line: string): string {
 }
 
 describe('tech-readiness variant gate', () => {
-  it('data-loader.ts: tech-readiness task is gated by isPanelInVariantDefaults', () => {
+  it('data-loader.ts: tech-readiness has no push task (panel is self-fetching via usePanelData)', () => {
     const lines = readFile('src/app/data-loader.ts');
-    // Find the line that enqueues the techReadiness task.
+    // Verify there is no task that pushes data to tech-readiness. The panel is self-fetching
+    // via usePanelData; adding a data-loader task without isPanelInVariantDefaults would
+    // re-introduce the original bug (fires on every variant, including ones without the seed).
     const taskLineIdx = lines.findIndex(l => /name:\s*'techReadiness'/.test(stripComments(l)));
-    assert.ok(taskLineIdx !== -1, 'expected to find techReadiness task in data-loader.ts');
-
-    // Walk backward to the enclosing `if (...)` on the same statement.
-    let ifLineIdx = -1;
-    for (let i = taskLineIdx; i >= Math.max(0, taskLineIdx - 5); i--) {
-      if (/^\s*if\s*\(/.test(stripComments(lines[i]))) {
-        ifLineIdx = i;
-        break;
-      }
-    }
-    assert.ok(ifLineIdx !== -1, 'expected an `if (...)` guarding the techReadiness task');
-
-    // The condition must mention the variant-defaults helper, not just shouldLoad.
-    const condition = stripComments(lines[ifLineIdx]);
-    assert.match(
-      condition,
-      /isPanelInVariantDefaults\(\s*['"]tech-readiness['"]\s*\)/,
-      `data-loader.ts:${ifLineIdx + 1} must gate techReadiness on isPanelInVariantDefaults('tech-readiness'); ` +
-      `\`shouldLoad\` alone is bypassed on boot because loadAllData(true) forces it true. Got: ${condition.trim()}`,
+    assert.equal(
+      taskLineIdx,
+      -1,
+      `data-loader.ts must not have a techReadiness push task (found at line ${taskLineIdx + 1}). ` +
+      'TechReadinessPanel is self-fetching via usePanelData — adding a data-loader task without ' +
+      "isPanelInVariantDefaults('tech-readiness') would re-introduce the PR #3833 regression " +
+      '(5s fetch fires on every variant, even ones without the seed).',
     );
   });
 
-  it("panel-layout.ts: tech-readiness lazy factory only calls p.refresh() under the variant gate", () => {
+  it('TechReadinessPanel.tsx: fetches via usePanelData (React mount lifecycle acts as variant gate)', () => {
+    const src = readFileSync(resolve(root, 'src/components/panels/TechReadinessPanel.tsx'), 'utf-8');
+    assert.match(
+      src,
+      /usePanelData/,
+      'TechReadinessPanel must fetch via usePanelData. This hook only fires when the component ' +
+      'mounts, and the component only mounts in variants where tech-readiness is in the panel ' +
+      "defaults — making React's mount lifecycle the implicit variant gate.",
+    );
+    assert.match(
+      src,
+      /hydrationKey:\s*['"]techReadiness['"]/,
+      "TechReadinessPanel must pass hydrationKey: 'techReadiness' to usePanelData so it reads " +
+      'from the bootstrap cache on variants that have the seed.',
+    );
+  });
+
+  it("panel-layout.ts: tech-readiness uses createFullReactPanelLoader (no bare p.refresh() outside variant gate)", () => {
     const lines = readFile('src/app/panel-layout.ts');
     // Find the lazy panel registration for tech-readiness.
-    const lazyIdx = lines.findIndex(l => /lazy(?:Imported)?Panel\(\s*['"]tech-readiness['"]/.test(stripComments(l)));
+    const lazyIdx = lines.findIndex(l => /lazyPanel\(\s*['"]tech-readiness['"]/.test(stripComments(l)));
     assert.ok(lazyIdx !== -1, "expected tech-readiness lazy panel registration in panel-layout.ts");
 
-    // Collect the factory body - walk forward until the call closes at column 0 with `);`.
+    // Collect the factory body — walk forward until the call closes.
     const body: { lineNo: number; text: string }[] = [];
     let depth = 0;
     let started = false;
@@ -80,23 +90,31 @@ describe('tech-readiness variant gate', () => {
       if (started && depth === 0) break;
     }
     assert.ok(body.length > 1, 'expected to walk the lazy panel factory body');
-
-    // Every line that calls `p.refresh()` must be preceded (within the body) by
-    // a conditional that names isPanelInVariantDefaults('tech-readiness').
-    const refreshLines = body.filter(b => /\bp\.refresh\(\s*\)/.test(b.text));
-    assert.ok(
-      refreshLines.length > 0,
-      "expected the factory to call p.refresh() (currently the variant-gated initial fetch)",
-    );
-
     const bodyText = body.map(b => b.text).join('\n');
+
+    // Must use createFullReactPanelLoader — the React lifecycle acts as the implicit variant gate.
     assert.match(
       bodyText,
-      /if\s*\(\s*isPanelInVariantDefaults\(\s*['"]tech-readiness['"]\s*\)\s*\)\s*\{[^}]*\bp\.refresh\(\s*\)/s,
-      "panel-layout.ts tech-readiness lazy factory must wrap p.refresh() in " +
-      "`if (isPanelInVariantDefaults('tech-readiness')) { ... }`. Without the gate, " +
-      'the factory fires the 5s /api/bootstrap?keys=techReadiness fetch on every variant ' +
-      "regardless of whether the seed key exists.",
+      /createFullReactPanelLoader/,
+      "panel-layout.ts tech-readiness registration must use createFullReactPanelLoader. " +
+      "This ensures the panel only mounts (and therefore only fetches) in variants where " +
+      "tech-readiness appears in the panel defaults.",
+    );
+
+    // Must NOT have a bare p.refresh() outside an isPanelInVariantDefaults guard.
+    // If someone adds p.refresh() back without the guard, the fetch fires on every variant.
+    const refreshLines = body.filter(b => /\bp\.refresh\(\s*\)/.test(b.text));
+    const ungatedRefresh = refreshLines.filter(b =>
+      !bodyText.slice(0, bodyText.indexOf(b.text)).match(
+        /isPanelInVariantDefaults\(\s*['"]tech-readiness['"]\s*\)/
+      )
+    );
+    assert.equal(
+      ungatedRefresh.length,
+      0,
+      `panel-layout.ts tech-readiness factory has ${ungatedRefresh.length} p.refresh() call(s) ` +
+      "outside an isPanelInVariantDefaults('tech-readiness') guard. Either remove p.refresh() " +
+      "(self-fetching via usePanelData) or add the variant gate.",
     );
   });
 

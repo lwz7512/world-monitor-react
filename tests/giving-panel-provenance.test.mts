@@ -283,7 +283,7 @@ describe('Giving panel provenance rendering', () => {
   });
 
   it('keeps the benchmark title and mobile metadata wrapping in the native panel surface', () => {
-    const component = readFileSync(resolve(root, 'src/components/GivingPanel.ts'), 'utf8');
+    const component = readFileSync(resolve(root, 'src/components/panels/GivingPanel.tsx'), 'utf8');
     const css = readFileSync(resolve(root, 'src/styles/panels.css'), 'utf8');
     assert.match(component, /components\.giving\.benchmarkTitle/);
     assert.match(css, /@media\s*\(max-width:\s*768px\)[\s\S]*\.giving-/);

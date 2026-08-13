@@ -49,7 +49,6 @@ export const REFRESH_INTERVALS = {
   supplyChain: 60 * 60 * 1000,
   chinaCorridors: 15 * 60 * 1000,
   chinaActivityNowcast: 15 * 60 * 1000,
-  telegramIntel: 60 * 1000,
   gulfEconomies: 10 * 60 * 1000,
   groceryBasket: 6 * 60 * 60 * 1000,
   fuelPrices: 6 * 60 * 60 * 1000,
@@ -77,8 +76,6 @@ export const REFRESH_INTERVALS = {
   economicCalendar: 60 * 60 * 1000,
   cotPositioning: 60 * 60 * 1000,
   goldIntelligence: 5 * 60 * 1000,
-  aaiiSentiment: 60 * 60 * 1000, // weekly data; hourly refresh is sufficient
-  marketBreadth: 60 * 60 * 1000, // seeded daily; hourly refresh is sufficient
 };
 
 // Monitor colors - shared

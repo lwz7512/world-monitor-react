@@ -20,7 +20,8 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const searchModalSrc = readFileSync(resolve(__dirname, '../src/components/SearchModal.ts'), 'utf-8');
 const searchManagerSrc = readFileSync(resolve(__dirname, '../src/app/search-manager.ts'), 'utf-8');
-const appSrc = readFileSync(resolve(__dirname, '../src/App.ts'), 'utf-8');
+// React migration: App.ts class deleted; enablePanel wiring moved to create-app-managers.ts
+const appSrc = readFileSync(resolve(__dirname, '../src/app/create-app-managers.ts'), 'utf-8');
 
 describe('CMD+K add-disabled-panel discoverability wiring', () => {
   it('SearchModal exposes setAvailablePanels (the disabled-but-addable superset)', () => {
@@ -54,13 +55,16 @@ describe('CMD+K add-disabled-panel discoverability wiring', () => {
   });
 
   it('App wires the enablePanel callback into SearchManager', () => {
-    assert.match(appSrc, /enablePanel:\s*\(panelId\)\s*=>\s*this\.eventHandlers\.enablePanelById\(panelId\)/);
+    // React migration: SearchLauncher constructed with direct enablePanelById call (no class this.eventHandlers)
+    assert.match(appSrc, /new SearchLauncher\([\s\S]*?\(panelId\)\s*=>\s*enablePanelById\(state,/);
   });
 
   it('EventHandler exposes a single enablePanelById used by both undo and search-add', () => {
     const ehSrc = readFileSync(resolve(__dirname, '../src/app/event-handlers.ts'), 'utf-8');
-    assert.match(ehSrc, /enablePanelById\(panelId: string\): boolean/, 'enablePanelById must be the shared enable path');
-    // performUndo must delegate to it (no duplicated enable logic).
-    assert.match(ehSrc, /performUndo\(\): void \{[\s\S]*?this\.enablePanelById\(panelId\);/);
+    // React migration: enablePanelById is now a callback in EventHandlerCallbacks interface
+    assert.match(ehSrc, /enablePanelById\??: \(panelId: string\) => boolean/, 'enablePanelById must be the shared enable path');
+    // React migration: performUndo moved to usePanelCloseUndo.ts hook — delegates via getPublishedAppActions().enablePanelById
+    const undoSrc = readFileSync(resolve(__dirname, '../src/hooks/usePanelCloseUndo.ts'), 'utf-8');
+    assert.match(undoSrc, /getPublishedAppActions\(\)\?\.enablePanelById\?\.\(panelId\)/, 'performUndo must delegate to enablePanelById without duplicating logic');
   });
 });

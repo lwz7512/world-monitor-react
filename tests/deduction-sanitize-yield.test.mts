@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 // DOMPurify.sanitize, so the post-response paint isn't blocked by the sanitize
 // long task (#4537). Re-checks isConnected after the new async gap.
 const src = readFileSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), '../src/components/DeductionPanel.ts'),
+  resolve(dirname(fileURLToPath(import.meta.url)), '../src/components/panels/DeductionPanel.tsx'),
   'utf8',
 );
 
@@ -29,5 +29,5 @@ test('DeductionPanel yields before the synchronous DOMPurify.sanitize (R5)', () 
 test('DeductionPanel re-checks isConnected after the new yield gap (R5)', () => {
   const yieldIdx = src.indexOf('await yieldToMain()');
   const between = src.slice(yieldIdx, src.indexOf('DOMPurify.sanitize(parsed)', yieldIdx));
-  assert.match(between, /isConnected/, 'guard re-checked after the async yield');
+  assert.match(between, /mountedRef\.current/, 'guard re-checked after the async yield');
 });

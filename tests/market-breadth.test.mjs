@@ -108,7 +108,7 @@ describe('Market breadth proto', () => {
 });
 
 describe('Market breadth panel', () => {
-  const panelSrc = readFileSync(join(root, 'src', 'components', 'MarketBreadthPanel.ts'), 'utf-8');
+  const panelSrc = readFileSync(join(root, 'src', 'components', 'panels', 'MarketBreadthPanel.tsx'), 'utf-8');
 
   it('is registered in handler.ts', () => {
     const handlerTs = readFileSync(join(root, 'server', 'worldmonitor', 'market', 'v1', 'handler.ts'), 'utf-8');
@@ -134,7 +134,7 @@ describe('Market breadth panel', () => {
 });
 
 describe('Market breadth null-vs-zero handling', () => {
-  const panelSrc = readFileSync(join(root, 'src', 'components', 'MarketBreadthPanel.ts'), 'utf-8');
+  const panelSrc = readFileSync(join(root, 'src', 'components', 'panels', 'MarketBreadthPanel.tsx'), 'utf-8');
   const handlerSrc = readFileSync(join(root, 'server', 'worldmonitor', 'market', 'v1', 'get-market-breadth-history.ts'), 'utf-8');
   const seedSrc = readFileSync(join(root, 'scripts', 'seed-market-breadth.mjs'), 'utf-8');
 
@@ -166,7 +166,7 @@ describe('Market breadth null-vs-zero handling', () => {
     // hasCurrent check must accept 0 but reject null
     assert.match(panelSrc, /Number\.isFinite\(val\)\s*&&\s*val\s*>=\s*0/);
     // Uses "—" (em dash, \u2014) for missing readings, not "N/A"
-    assert.match(panelSrc, /\\u2014/);
+    assert.match(panelSrc, /—/);
   });
 
   it('history chart splits polylines at null points', () => {

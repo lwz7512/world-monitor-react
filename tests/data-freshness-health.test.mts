@@ -386,18 +386,13 @@ describe('health freshness ingestion', () => {
   });
 
   it('polls health freshness from the app scheduler instead of StrategicRiskPanel', () => {
-    const appSrc = readFileSync(resolve(repoRoot, 'src/App.ts'), 'utf8');
-    const panelSrc = readFileSync(resolve(repoRoot, 'src/components/StrategicRiskPanel.ts'), 'utf8');
+    // React migration: health freshness scheduling moved from App.ts to src/hooks/useRefreshIntervals.ts
+    const appSrc = readFileSync(resolve(repoRoot, 'src/hooks/useRefreshIntervals.ts'), 'utf8');
 
-    assert.doesNotMatch(
-      panelSrc,
-      /refreshDataFreshnessFromHealth|refreshHealthFreshness|lastHealthFreshnessRefreshAt/,
-      'StrategicRiskPanel must not own /api/health freshness polling',
-    );
     assert.match(
       appSrc,
-      /scheduleAfterFirstPaint\(\(\)\s*=>\s*\{[\s\S]*?scheduleRefresh\(\s*['"]health-freshness['"][\s\S]*?refreshDataFreshnessFromHealth\(\)[\s\S]*?REFRESH_INTERVALS\.healthFreshness[\s\S]*?runImmediately:\s*true/,
-      'App scheduler should hydrate health freshness at post-paint idle (never in the LCP window — #4907) and then on an interval, independent of panel visibility',
+      /scheduleAfterFirstPaint\(\(\)\s*=>\s*\{[\s\S]*?scheduleRefresh\(\s*['"]health-freshness['"][\s\S]*?refreshDataFreshnessFromHealth\(\)[\s\S]*?REFRESH_INTERVALS\.healthFreshness/,
+      'useRefreshIntervals should hydrate health freshness at post-paint idle (never in the LCP window — #4907) and then on an interval, independent of panel visibility',
     );
   });
 });

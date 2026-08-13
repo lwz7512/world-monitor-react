@@ -35,7 +35,7 @@ api/\[domain\]/v1/\[rpc\].js
 api/\[\[...path\]\].js
 .claude/
 .cursor/
-CLAUDE.md
+# CLAUDE.md
 .env.vercel-backup
 .env.vercel-export
 .agent/

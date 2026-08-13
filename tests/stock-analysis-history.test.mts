@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { afterEach, describe, it } from 'node:test';
 
 import {
@@ -435,8 +435,11 @@ describe('stock analysis rating presentation', () => {
   });
 
   it('does not use raw technical fields for unlabeled panel rating surfaces', () => {
+    // React migration: StockAnalysisPanel.ts → StockAnalysisPanel.tsx
+    const classPath = new URL('../src/components/StockAnalysisPanel.ts', import.meta.url);
+    const reactPath = new URL('../src/components/panels/StockAnalysisPanel.tsx', import.meta.url);
     const source = readFileSync(
-      new URL('../src/components/StockAnalysisPanel.ts', import.meta.url),
+      existsSync(classPath.pathname) ? classPath : reactPath,
       'utf8',
     );
 

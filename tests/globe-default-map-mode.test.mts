@@ -37,14 +37,15 @@ describe('default map mode', () => {
   });
 
   it('routes App and PanelLayout through the shared preference helper', () => {
+    // React migration: App.ts → useCloudPrefsSync.ts for map mode reading
     const panelLayout = readSrc('src/app/panel-layout.ts');
-    const app = readSrc('src/App.ts');
+    const cloudPrefsSync = readSrc('src/hooks/useCloudPrefsSync.ts');
 
     assert.match(panelLayout, /getStoredMapModePreference\(\) === 'globe'/);
-    assert.match(app, /const mode = getStoredMapModePreference\(\)/);
+    assert.match(cloudPrefsSync, /const mode = getStoredMapModePreference\(\)/);
 
     assert.doesNotMatch(
-      `${panelLayout}\n${app}`,
+      `${panelLayout}\n${cloudPrefsSync}`,
       /loadFromStorage<string>\(\s*STORAGE_KEYS\.mapMode\s*,\s*['"]globe['"]\s*\)/,
       'map mode callers must not reintroduce the 3D globe fallback',
     );

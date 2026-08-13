@@ -66,7 +66,6 @@ export interface AppContext {
   readonly container: HTMLElement;
 
   panels: Record<string, import('@/components').Panel>;
-  newsPanels: Record<string, import('@/components').NewsPanel>;
   /**
    * `feed category key → the panel key its NewsPanel registered under`, filled
    * by panel-layout as it registers news panels. A category whose key was
@@ -92,6 +91,7 @@ export interface AppContext {
   currentTimeRange: import('@/components').TimeRange;
 
   inFlight: Set<string>;
+  visiblePanelPrimed: Set<string>;
   seenGeoAlerts: Set<string>;
   monitors: Monitor[];
 
@@ -107,22 +107,27 @@ export interface AppContext {
   pizzintIndicator: import('@/components').PizzIntIndicator | null;
   correlationEngine: import('@/services/correlation-engine').CorrelationEngine | null;
   llmStatusIndicator: import('@/components').LlmStatusIndicator | null;
+  refreshScheduler: import('@/app/refresh-scheduler').RefreshScheduler | null;
+  dataLoader: import('@/app/data-loader').DataLoaderManager | null;
   countryBriefPage: import('@/components/CountryBriefPanel').CountryBriefPanel | null;
   countryTimeline: import('@/components/CountryTimeline').CountryTimeline | null;
 
-  positivePanel: import('@/components/PositiveNewsFeedPanel').PositiveNewsFeedPanel | null;
-  countersPanel: import('@/components/CountersPanel').CountersPanel | null;
-  progressPanel: import('@/components/ProgressChartsPanel').ProgressChartsPanel | null;
-  breakthroughsPanel: import('@/components/BreakthroughsTickerPanel').BreakthroughsTickerPanel | null;
-  heroPanel: import('@/components/HeroSpotlightPanel').HeroSpotlightPanel | null;
-  digestPanel: import('@/components/GoodThingsDigestPanel').GoodThingsDigestPanel | null;
-  speciesPanel: import('@/components/SpeciesComebackPanel').SpeciesComebackPanel | null;
-  renewablePanel: import('@/components/RenewableEnergyPanel').RenewableEnergyPanel | null;
+  positivePanel: null;
+  countersPanel: null;
+  progressPanel: null;
+  breakthroughsPanel: null;
+  heroPanel: null;
+  digestPanel: null;
+  speciesPanel: null;
+  renewablePanel: null;
   authModal: { open(): void; close(): void; destroy(): void } | null;
   authHeaderWidget: import('@/components/AuthHeaderWidget').AuthHeaderWidget | null;
   tvMode: import('@/services/tv-mode').TvModeController | null;
+  mobilePanelNav: import('@/components/MobilePanelNav').MobilePanelNav | null;
   happyAllItems: NewsItem[];
   isDestroyed: boolean;
+  uiReady: Promise<void>;
+  resolveUiReady: () => void;
   isPlaybackMode: boolean;
   isIdle: boolean;
   initialLoadComplete: boolean;
@@ -132,6 +137,15 @@ export interface AppContext {
   initialUrlState: import('@/utils').ParsedMapUrlState | null;
   readonly PANEL_ORDER_KEY: string;
   readonly PANEL_SPANS_KEY: string;
+  primeVisiblePanelData?: (forceAll?: boolean) => Promise<void>;
+  freeTierGate: import('@/app/free-tier-gate').FreeTierGate | null;
+  pendingCloudRecoverySyncVersion: number | undefined;
+  pendingDeepLinks?: {
+    country: string | null;
+    expanded: boolean;
+    chokepoint: string | null;
+    storyCode: string | null;
+  } | null;
 }
 
 export interface AppModule {
